@@ -63,7 +63,7 @@ func TestUndoRestoresState(t *testing.T) {
 		t.Error("отмена должна убрать героя")
 	}
 	if err := a.Undo(); err == nil {
-		t.Error("пустая история — ошибка")
+		t.Error("пустая история – ошибка")
 	}
 }
 

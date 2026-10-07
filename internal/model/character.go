@@ -1,4 +1,4 @@
-// Package model — сущности, не зависящие от конкретной системы правил.
+// Package model – сущности, не зависящие от конкретной системы правил.
 package model
 
 import (
@@ -16,10 +16,10 @@ type Weapon struct {
 	Bonus   int    `json:"bonus"` // магический бонус к атаке и урону (+1, +2, +3)
 }
 
-// Unarmed — запасной вариант, когда оружие не выбрано.
+// Unarmed – запасной вариант, когда оружие не выбрано.
 var Unarmed = Weapon{Name: "Безоружный удар", Dice: "1d4", Ability: "str", Type: "bludgeoning"}
 
-// Item — предмет. В библиотеке (ID задан) это шаблон, в инвентаре — копия со своим количеством.
+// Item – предмет. В библиотеке (ID задан) это шаблон, в инвентаре – копия со своим количеством.
 type Item struct {
 	ID           string  `json:"id"`
 	Name         string  `json:"name"`
@@ -31,7 +31,7 @@ type Item struct {
 	AbilityBonus int     `json:"abilityBonus"`
 	Weapon       *Weapon `json:"weapon"`
 	Equipped     bool    `json:"equipped"`
-	ArmorBase    int     `json:"armorBase"` // базовый КД доспеха, 0 — не доспех
+	ArmorBase    int     `json:"armorBase"` // базовый КД доспеха, 0 – не доспех
 	ArmorType    string  `json:"armorType"` // light | medium | heavy
 	Cat          string  `json:"cat"`       // weapon | armor | gear | tool | magic | potion | mount …
 	Price        string  `json:"price"`
@@ -40,11 +40,11 @@ type Item struct {
 
 type Spell struct {
 	Name  string `json:"name"`
-	Level int    `json:"level"` // D&D: уровень ячейки, 0 — заговор
+	Level int    `json:"level"` // D&D: уровень ячейки, 0 – заговор
 	Cost  int    `json:"cost"`  // Алдоран: мана
 	Note  string `json:"note"`
 	Ref   string `json:"ref"` // id заклинания из каталога
-	// Auto — автоматизация собственного заклинания (когда его нет в каталоге).
+	// Auto – автоматизация собственного заклинания (когда его нет в каталоге).
 	Auto *SpellAuto `json:"auto,omitempty"`
 }
 
@@ -60,7 +60,7 @@ type SpellAuto struct {
 	Scale bool   `json:"scale"` // заговор растёт с 5/11/17 уровня
 }
 
-// SpellTemplate — собственное заклинание в библиотеке мастера.
+// SpellTemplate – собственное заклинание в библиотеке мастера.
 type SpellTemplate struct {
 	ID     string     `json:"id"`
 	Name   string     `json:"name"`
@@ -70,27 +70,27 @@ type SpellTemplate struct {
 	Auto   *SpellAuto `json:"auto,omitempty"`
 }
 
-// Effect — действующий эффект на существе: заклинание с длительностью, состояние от умения монстра.
+// Effect – действующий эффект на существе: заклинание с длительностью, состояние от умения монстра.
 // Тикает в конце хода носителя; концентрационные эффекты снимаются, когда заклинатель теряет концентрацию.
 type Effect struct {
 	Name   string `json:"name"`
-	Rounds int    `json:"rounds"` // сколько ходов носителя осталось; 0 — пока не снимут вручную
+	Rounds int    `json:"rounds"` // сколько ходов носителя осталось; 0 – пока не снимут вручную
 	Cond   string `json:"cond"`   // состояние, которое накладывает эффект
 	Src    string `json:"src"`    // id заклинателя
 	Conc   bool   `json:"conc"`   // держится на концентрации Src
-	Save   string `json:"save"`   // повторный спасбросок в конце хода (характеристика), "" — нет
+	Save   string `json:"save"`   // повторный спасбросок в конце хода (характеристика), "" – нет
 	DC     int    `json:"dc"`
 	AC     int    `json:"ac"`   // бонус к КД
-	Atk    string `json:"atk"`  // бонус к броску атаки, напр. "1d4"; со знаком «-» — штраф
+	Atk    string `json:"atk"`  // бонус к броску атаки, напр. "1d4"; со знаком «-» – штраф
 	Once   bool   `json:"once"` // бонус к атаке тратится на первом же броске
 	ID     int64  `json:"id"`
 }
 
-// Special — особая способность существа, которую можно применить из боя (дыхание, яд, паралич, захват).
+// Special – особая способность существа, которую можно применить из боя (дыхание, яд, паралич, захват).
 type Special struct {
 	Key      string `json:"key"`
 	Name     string `json:"name"`
-	Mode     string `json:"mode"`   // area — по всем врагам; single — по одной цели
+	Mode     string `json:"mode"`   // area – по всем врагам; single – по одной цели
 	Attack   bool   `json:"attack"` // single: сначала бросок атаки по КД
 	Dmg      string `json:"dmg"`    // area: урон со спасброском; single: урон при попадании
 	Type     string `json:"type"`
@@ -109,7 +109,7 @@ type Special struct {
 	OnlyKind string `json:"onlyKind"` // area: действует только на существ этого типа (изгнание нежити)
 }
 
-// MonsterStat — фиксированные значения существа из бестиария.
+// MonsterStat – фиксированные значения существа из бестиария.
 type MonsterStat struct {
 	CR       string    `json:"cr"`
 	Kind     string    `json:"kind"` // тип существа (для картинки и фильтров)
@@ -129,7 +129,7 @@ type MonsterStat struct {
 type Character struct {
 	ID         string          `json:"id"`
 	Name       string          `json:"name"`
-	Kind       string          `json:"kind"` // "" — герой, "monster" — существо
+	Kind       string          `json:"kind"` // "" – герой, "monster" – существо
 	Ruleset    string          `json:"ruleset"`
 	Race       string          `json:"race"`
 	Subrace    string          `json:"subrace"`
@@ -174,15 +174,15 @@ type Feature struct {
 	Desc string `json:"desc"`
 	Mode string `json:"mode"` // для special: area | single
 	// Для способностей с ресурсом и целью (Kind == "ability"):
-	Target string `json:"target"` // "" — на себя; ally — союзник; foe — враг
+	Target string `json:"target"` // "" – на себя; ally – союзник; foe – враг
 	Pool   string `json:"pool"`   // название ресурса («Кости превосходства»)
 	Cost   int    `json:"cost"`   // сколько единиц ресурса тратится
 	Left   int    `json:"left"`   // осталось единиц ресурса
 	Max    int    `json:"max"`
-	Rest   string `json:"rest"` // short | long | battle — когда восстанавливается
+	Rest   string `json:"rest"` // short | long | battle – когда восстанавливается
 }
 
-// PoolView — ресурс класса для отображения (ки, кости превосходства, наложение рук).
+// PoolView – ресурс класса для отображения (ки, кости превосходства, наложение рук).
 type PoolView struct {
 	Key  string `json:"key"`
 	Name string `json:"name"`
@@ -196,7 +196,7 @@ type SlotView struct {
 	Max   int `json:"max"`
 }
 
-// Derived — вычисляемые значения; хранить их нельзя, иначе они разойдутся с исходными.
+// Derived – вычисляемые значения; хранить их нельзя, иначе они разойдутся с исходными.
 type Derived struct {
 	MaxHP      int            `json:"maxHp"`
 	MaxMP      int            `json:"maxMp"`
@@ -226,13 +226,14 @@ type AttackResult struct {
 	Hit        bool   `json:"hit"`
 	Crit       bool   `json:"crit"`
 	Rolls      []int  `json:"rolls"`
+	Kept       int    `json:"kept"` // засчитанный d20 (преимущество или помеха могли прийти от состояний)
 	Total      int    `json:"total"`
 	Target     int    `json:"target"`
 	Damage     int    `json:"damage"`
 	DamageText string `json:"damageText"`
 }
 
-// Clone — глубокая копия: ответы интерфейсу сериализуются без мьютекса и не должны делить с состоянием срезы и карты.
+// Clone – глубокая копия: ответы интерфейсу сериализуются без мьютекса и не должны делить с состоянием срезы и карты.
 func (c *Character) Clone() Character {
 	out := *c
 	out.Abilities = maps.Clone(c.Abilities)
@@ -272,7 +273,7 @@ func (c *Character) Down() bool     { return c.HP <= 0 }
 func (c *Character) Standing() bool { return c.HP > 0 && !c.Dead }
 
 // Damage сначала снимает временные HP, затем обычные; ниже нуля не опускается.
-// Смерть и спасброски от смерти — дело системы правил (Combatant.AfterDamage).
+// Смерть и спасброски от смерти – дело системы правил (Combatant.AfterDamage).
 func (c *Character) Damage(n int) {
 	if n <= 0 || c.Dead {
 		return
@@ -328,10 +329,10 @@ func (c *Character) Count(key string, delta int) int {
 	return c.Counters[key]
 }
 
-// Coins — порядок и вес монет (50 монет весят фунт).
+// Coins – порядок и вес монет (50 монет весят фунт).
 var CoinOrder = []string{"pp", "gp", "ep", "sp", "cp"}
 
-// CoinValueCP — стоимость монеты в медных.
+// CoinValueCP – стоимость монеты в медных.
 var CoinValueCP = map[string]int{"pp": 1000, "gp": 100, "ep": 50, "sp": 10, "cp": 1}
 
 func (c *Character) PurseWeight() float64 {

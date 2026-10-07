@@ -1,4 +1,4 @@
-// Package bestiary — существа D&D 5e для боя: встроенный список (SRD / Monster Manual, значения по памяти — сверяйте с книгой)
+// Package bestiary – существа D&D 5e для боя: встроенный список (SRD / Monster Manual, значения по памяти – сверяйте с книгой)
 // и собственные существа мастера.
 package bestiary
 
@@ -38,7 +38,7 @@ type Monster struct {
 
 var kinds = []string{"beast", "humanoid", "undead", "dragon", "giant", "fiend", "fey", "construct", "ooze", "elemental", "monstrosity", "aberration", "plant", "celestial"}
 
-// Kinds — допустимые типы существ.
+// Kinds – допустимые типы существ.
 func Kinds() []string { return slices.Clone(kinds) }
 
 var damageTypes = []string{"slashing", "piercing", "bludgeoning", "fire", "cold", "lightning", "thunder", "acid", "poison", "necrotic", "radiant", "force", "psychic"}
@@ -112,7 +112,7 @@ func CRValue(cr string) float64 {
 	return v
 }
 
-// List — встроенные существа по возрастанию уровня опасности (CR), затем по HP.
+// List – встроенные существа по возрастанию уровня опасности (CR), затем по HP.
 func List() []Monster {
 	out := make([]Monster, len(list))
 	for i, x := range list {

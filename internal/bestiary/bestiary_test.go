@@ -33,7 +33,7 @@ func TestBestiaryIntegrity(t *testing.T) {
 		t.Errorf("в бестиарии только %d существ", len(seen))
 	}
 	if _, err := Make("nope", 1, func() string { return "x" }); err == nil {
-		t.Error("неизвестное существо — ошибка")
+		t.Error("неизвестное существо – ошибка")
 	}
 }
 

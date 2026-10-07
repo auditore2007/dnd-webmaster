@@ -5,6 +5,7 @@ import Inventory from './Inventory.jsx'
 import { Icon, CondIcon } from './Icon.jsx'
 import Abilities from './Abilities.jsx'
 import { SpellFilters, filterSpells, lvlName } from './Spells.jsx'
+import { HpMeter } from './Meter.jsx'
 
 const fmt = (n) => ((n ?? 0) > 0 ? '+' : '') + (n ?? 0)
 const pips = (n) => '●'.repeat(n) + '○'.repeat(Math.max(0, 3 - n))
@@ -29,7 +30,6 @@ export default function Sheet({ hero: h, rs, lib, chars, mode, dc, roll, guard, 
     else if (n !== cur) f(n)
   }
   const hasSaves = d.saves && Object.keys(d.saves).length > 0
-  const pct = Math.max(0, Math.min(100, Math.round((h.hp / Math.max(1, d.maxHp)) * 100)))
   const inv = h.inventory ?? []
   const setInv = (i, patch) => save({ inventory: inv.map((x, j) => (j === i ? { ...x, ...patch } : x)) })
   const over = d.carry > 0 && d.load > d.carry
@@ -46,7 +46,7 @@ export default function Sheet({ hero: h, rs, lib, chars, mode, dc, roll, guard, 
         <div className="hn"><input className="name" key={h.name} defaultValue={h.name} aria-label="Имя героя" onBlur={(e) => e.target.value.trim() && e.target.value !== h.name && save({ name: e.target.value })} />
       <p className="sub">{mon ? `Существо · CR ${h.stat.cr}` : `${race?.name ?? ''}${sub ? ` · ${sub.name}` : ''}${cls ? ` · ${cls.name}` : ''}`}</p>
           {cls?.subclasses?.length > 0 && <label className="subcls">Подкласс
-            <select value={h.subclass ?? ''} onChange={(e) => save({ subclass: e.target.value })}><option value="">— не выбран —</option>
+            <select value={h.subclass ?? ''} onChange={(e) => save({ subclass: e.target.value })}><option value="">– не выбран –</option>
               {cls.subclasses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
         </div>
       </div>
@@ -54,11 +54,10 @@ export default function Sheet({ hero: h, rs, lib, chars, mode, dc, roll, guard, 
       <div className="vitals">
         {!mon && <div className="lvl"><span>Уровень</span>
           <button aria-label="Понизить уровень" disabled={h.level <= 1} onClick={() => save({ level: h.level - 1 })}>−</button>
-          <b>{h.level}</b>
+          <b key={h.level} className="pop">{h.level}</b>
           <button aria-label="Повысить уровень" disabled={h.level >= 20} onClick={() => save({ level: h.level + 1 })}>+</button></div>}
         <div className="hp">
-          <div className="meter" style={{ '--p': pct + '%' }} role="meter" aria-valuenow={h.hp} aria-valuemin={0} aria-valuemax={d.maxHp}>
-            <b>{h.hp} / {d.maxHp}{h.tempHp > 0 ? ` (+${h.tempHp})` : ''}</b></div>
+          <HpMeter hp={h.hp} max={d.maxHp} temp={h.tempHp} />
           {[-5, -1, 1, 5].map((n) => <button key={n} onClick={() => hp(n)}>{fmt(n)}</button>)}
         </div>
         {h.dead && <p className="bad"><b>Погиб</b> <button className="ghost" onClick={() => act(api.Revive(h.id))}>Воскресить</button></p>}
@@ -80,10 +79,10 @@ export default function Sheet({ hero: h, rs, lib, chars, mode, dc, roll, guard, 
         </dl>
         {d.effects?.length > 0 && <div className="chips">{d.effects.map((x) => <span key={x} className="chip fx">{x}</span>)}</div>}
         {!mon && <div className="mt"><span>Опыт</span>
-          <div className="meter xp" style={{ '--p': Math.min(100, Math.round((h.xp / Math.max(1, d.nextXp)) * 100)) + '%' }}><b>{h.xp} / {d.nextXp > 1e9 ? '—' : d.nextXp}</b></div>
+          <div className="meter xp" style={{ '--p': Math.min(100, Math.round((h.xp / Math.max(1, d.nextXp)) * 100)) + '%' }}><b>{h.xp} / {d.nextXp > 1e9 ? '–' : d.nextXp}</b></div>
           <input type="number" min="1" value={xp} onChange={(e) => setXp(parseInt(e.target.value, 10) || 0)} aria-label="Сколько опыта" style={{ width: 80 }} />
           <button onClick={() => act(api.AddXP(h.id, xp))}>+XP</button></div>}
-        {h.points > 0 && <p className="hint">Очки характеристик: <b>{h.points}</b> — тратятся кнопками «+» ниже.</p>}
+        {h.points > 0 && <p className="hint">Очки характеристик: <b>{h.points}</b> – тратятся кнопками «+» ниже.</p>}
         {!mon && <div className="row tight">{rs.rests.map((r) => <button key={r.id} className="ghost" onClick={() => act(api.Rest(h.id, r.id))}>{r.name}</button>)}</div>}
       </div>
 
@@ -91,7 +90,7 @@ export default function Sheet({ hero: h, rs, lib, chars, mode, dc, roll, guard, 
         {rs.abilities.map((a) => (
           <div className="ab" key={a.id}>
             <small>{a.name}</small>
-            <b>{fmt(d.mods?.[a.id])}</b>
+            <b key={d.mods?.[a.id]} className="pop">{fmt(d.mods?.[a.id])}</b>
             <input type="number" min="0" max="30" aria-label={a.name} key={a.id + h.abilities[a.id]} defaultValue={h.abilities[a.id]}
               onBlur={num(h.abilities[a.id], (n) => save({ abilities: { ...h.abilities, [a.id]: Math.max(0, Math.min(30, n)) } }))} />
             <div>
@@ -111,7 +110,7 @@ export default function Sheet({ hero: h, rs, lib, chars, mode, dc, roll, guard, 
           {features.filter((f) => f.kind !== 'ability').map((f) => f.kind === 'toggle'
             ? <button key={f.key + f.name} className="chip" aria-pressed={f.on} title={f.desc} onClick={() => act(api.UseFeature(h.id, f.key))}>{f.name}{f.on ? ' · активно' : ''}</button>
             : f.kind === 'once'
-              ? <button key={f.key + f.name} className="chip" disabled={f.on} title={f.desc} onClick={() => act(api.UseFeature(h.id, f.key))}>{f.name}{f.on ? ' · использовано' : ' — применить'}</button>
+              ? <button key={f.key + f.name} className="chip" disabled={f.on} title={f.desc} onClick={() => act(api.UseFeature(h.id, f.key))}>{f.name}{f.on ? ' · использовано' : ' – применить'}</button>
               : <span key={f.key + f.name} className="chip" title={f.desc}>{f.name}{f.on ? ' · использовано' : ''}</span>)}
         </div></>}
       {!mon && <Abilities h={h} chars={chars} call={act} />}
@@ -147,12 +146,12 @@ export default function Sheet({ hero: h, rs, lib, chars, mode, dc, roll, guard, 
           })}</div>)}</>}
 
       {!mon && <><h3>{rs.id === 'dnd5e' ? 'Заклинания' : 'Навыки'}</h3>
-        {(h.spells ?? []).map((s, i) => <Spell key={i} s={s} i={i} h={h} d={d} rs={rs} act={act} save={save} />)}
+        {(h.spells ?? []).map((s, i) => <Spell key={(s.ref || s.name) + ':' + i} s={s} i={i} h={h} d={d} rs={rs} act={act} save={save} />)}
         {rs.spells?.length > 0 && <SpellPicker rs={rs} h={h} save={save} act={act} guard={guard} />}
         <div className="f sp">
           <input placeholder="Название" aria-label="Название" value={sp.name} onChange={(e) => setSp({ ...sp, name: e.target.value })} />
           {rs.id === 'dnd5e'
-            ? <input type="number" min="0" max="9" aria-label="Уровень (0 — заговор)" title="Уровень (0 — заговор)" value={sp.level} onChange={(e) => setSp({ ...sp, level: +e.target.value })} />
+            ? <input type="number" min="0" max="9" aria-label="Уровень (0 – заговор)" title="Уровень (0 – заговор)" value={sp.level} onChange={(e) => setSp({ ...sp, level: +e.target.value })} />
             : <input type="number" min="0" aria-label="Мана" title="Стоимость маны" value={sp.cost} onChange={(e) => setSp({ ...sp, cost: +e.target.value })} />}
           <input placeholder="Описание" aria-label="Описание" value={sp.note} onChange={(e) => setSp({ ...sp, note: e.target.value })} />
           <button className="ghost" disabled={!sp.name.trim()} onClick={() => { save({ spells: [...(h.spells ?? []), sp] }); setSp({ ...sp, name: '', note: '' }) }}>Добавить</button>
@@ -174,7 +173,7 @@ export default function Sheet({ hero: h, rs, lib, chars, mode, dc, roll, guard, 
       </div>
 
       <h3>Заметки</h3>
-      <textarea key={h.id} defaultValue={h.notes} aria-label="Заметки" onBlur={(e) => e.target.value !== h.notes && save({ notes: e.target.value })} />
+      <textarea key={'n' + (h.notes ?? '')} defaultValue={h.notes} aria-label="Заметки" onBlur={(e) => e.target.value !== h.notes && save({ notes: e.target.value })} />
       <div className="row"><button className="ghost danger" onClick={() => (armed ? remove(h.id) : setArmed(true))} onBlur={() => setArmed(false)}>{armed ? 'Точно удалить?' : 'Удалить'}</button></div>
     </article>
   )
@@ -200,7 +199,7 @@ function ClassFeatures({ cls, h }) {
     <details className="cf">
       <summary>Умения класса: {cls.name}{sub ? ` · ${sub.name}` : ''} <small>({list.length})</small></summary>
       {list.map((f, i) => <p key={i}><b>{f.level} ур. {f.name}.</b> {f.desc}</p>)}
-      {next && <p className="hint">Дальше: {next.level} ур. — {next.name}</p>}
+      {next && <p className="hint">Дальше: {next.level} ур. – {next.name}</p>}
     </details>
   )
 }
@@ -216,7 +215,7 @@ function Skills({ rs, h, d, save, roll, mode, dc }) {
   }
   return (
     <>
-      <h3>Навыки <small>клик по метке — владение / экспертиза</small></h3>
+      <h3>Навыки <small>клик по метке – владение / экспертиза</small></h3>
       <div className="skills">
         {rs.skills.map((s) => (
           <div className="sk" key={s.id}>
@@ -251,7 +250,7 @@ function SpellPicker({ rs, h, save, act, guard }) {
           {list.slice(0, 400).map((s) => <option key={s.id} value={s.id}>{lvlName(s.level)} · {s.name}{s.mode ? ' ⚡' : ''}</option>)}</select>
         <button className="ghost" onClick={() => cur && save({ spells: [...(h.spells ?? []), { name: cur.name, level: cur.level, cost: 0, note: cur.desc, ref: cur.id }] })}>Выучить</button>
       </div> : <p className="hint">Ничего не найдено.</p>}
-      {list.length > 400 && <p className="hint">Показаны первые 400 — уточните поиск.</p>}
+      {list.length > 400 && <p className="hint">Показаны первые 400 – уточните поиск.</p>}
       {cur && <p className="hint">{cur.school}. {cur.desc}{cur.mode ? ' Бросок и урон считаются автоматически в бою (⚡).' : ' Тратит ячейку, эффект применяет мастер.'}</p>}
       {mine.length > 0 && <div className="row tight"><b>Свои:</b>
         <select aria-label="Своё заклинание" value={tcur?.id} onChange={(e) => setTpl(e.target.value)}>{mine.map((t) => <option key={t.id} value={t.id}>{lvlName(t.level)} · {t.name}{t.auto?.mode ? ' ⚡' : ''}</option>)}</select>

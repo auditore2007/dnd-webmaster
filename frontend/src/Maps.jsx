@@ -3,8 +3,8 @@ import { api } from './api'
 import { pickMap } from './Portrait.jsx'
 import { Icon } from './Icon.jsx'
 
-// MapsView — галерея карт мастера: добавляй сколько угодно своих карт, у каждой свои метки.
-export default function MapsView({ guard }) {
+// MapsView – галерея карт мастера: добавляй сколько угодно своих карт, у каждой свои метки.
+export default function MapsView({ guard, rev = 0 }) {
   const [maps, setMaps] = useState(null)
   const [cur, setCur] = useState('')
   const [img, setImg] = useState('')
@@ -12,7 +12,7 @@ export default function MapsView({ guard }) {
   const [renaming, setRenaming] = useState(false)
   const [armed, setArmed] = useState(false)
   const load = (pick) => guard(async () => { const m = await api.Maps(); setMaps(m); setCur((c) => pick ?? (m.some((x) => x.id === c) ? c : m[0]?.id ?? '')) })
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [rev])
   useEffect(() => { setImg(''); setArmed(false); setRenaming(false); if (cur) guard(async () => setImg(await api.GetMapImage(cur))) }, [cur])
   const map = maps?.find((m) => m.id === cur)
   const add = (file) => guard(async () => {
@@ -36,8 +36,8 @@ export default function MapsView({ guard }) {
         {map && <button className="ghost danger" onClick={() => (armed ? guard(async () => { await api.DeleteMap(map.id); setArmed(false); await load('') }) : setArmed(true))} onBlur={() => setArmed(false)}>{armed ? 'Точно удалить?' : 'Удалить карту'}</button>}
       </div>
       {maps.length === 0
-        ? <p className="empty">Карт пока нет. Нажмите «Добавить карту» и выберите картинку (мир, город, подземелье) — можно загрузить несколько и переключаться между ними.</p>
-        : map && img ? <Viewer key={map.id} map={map} img={img} guard={guard} reload={() => load(map.id)} /> : <p className="hint">Загрузка карты…</p>}
+        ? <p className="empty">Карт пока нет. Нажмите «Добавить карту» и выберите картинку (мир, город, подземелье) – можно загрузить несколько и переключаться между ними.</p>
+        : map && img ? <Viewer key={map.id + ':' + rev} map={map} img={img} guard={guard} reload={() => load(map.id)} /> : <p className="hint">Загрузка карты…</p>}
     </section>
   )
 }
@@ -75,6 +75,14 @@ function Viewer({ map, img, guard, reload }) {
     return { k, x: px - (px - s.x) * r, y: py - (py - s.y) * r }
   })
   const rect = () => box.current.getBoundingClientRect()
+  // колесо мыши – масштаб. Обработчик не пассивный, иначе браузер заодно прокрутит страницу.
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const h = (e) => { e.preventDefault(); const r = el.getBoundingClientRect(); zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top) }
+    el.addEventListener('wheel', h, { passive: false })
+    return () => el.removeEventListener('wheel', h)
+  }, [])
   const toImg = (e) => { const r = rect(); return [(e.clientX - r.left - v.x) / v.k, (e.clientY - r.top - v.y) / v.k] }
 
   // ----- туман -----
@@ -181,18 +189,17 @@ function Viewer({ map, img, guard, reload }) {
         <p className="hint">Линейка: выберите «Линейка» и протяните по карте. Чтобы подогнать сетку под картинку, измерьте одну клетку на карте линейкой и нажмите «Принять за клетку».</p>
       </details>
       {ruler && dist > 2 && <div className="rulerinfo"><Icon n="ruler" /> {feetOf != null ? <b>{Math.round(feetOf)} фт ({(feetOf / map.feet).toFixed(1)} клеток)</b> : <b>{Math.round(dist)} px</b>}
-        {feetOf == null && <small> — включите сетку, чтобы считать в футах</small>}
+        {feetOf == null && <small> – включите сетку, чтобы считать в футах</small>}
         <button className="ghost small" onClick={() => { setCell(Math.round(dist)); setGridOn(true); saveGrid(true, dist) }}>Принять за клетку</button>
         <button className="ghost small" onClick={() => setRuler(null)}>Скрыть</button></div>}
-      <div className="mapbox" ref={box} style={{ cursor }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
-        onWheel={(e) => { const r = rect(); zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top) }}>
+      <div className="mapbox" ref={box} style={{ cursor }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         <div className="mapl" style={{ transform: `translate(${v.x}px,${v.y}px) scale(${v.k})`, '--ik': 1 / v.k }}>
           <img ref={im} src={img} alt={map.name} draggable="false" onLoad={(e) => { setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight }); fit() }} />
           {map.grid > 0 && dim && <div className="gridl" style={{ width: dim.w, height: dim.h, backgroundSize: `${map.grid}px ${map.grid}px`, '--gw': `${Math.max(1, 1 / v.k)}px` }} />}
           {fogged && <canvas ref={fogc} className="fogc" data-testid="fog" width={fogSize.w} height={fogSize.h} style={{ width: dim.w, height: dim.h, opacity: player ? 1 : 0.55 }} />}
           {ruler && <svg className="rulersvg" width={dim?.w} height={dim?.h}><line x1={ruler[0]} y1={ruler[1]} x2={ruler[2]} y2={ruler[3]} stroke="#ffd34d" strokeWidth={3 / v.k} strokeLinecap="round" />
             <circle cx={ruler[0]} cy={ruler[1]} r={5 / v.k} fill="#ffd34d" /><circle cx={ruler[2]} cy={ruler[3]} r={5 / v.k} fill="#ffd34d" /></svg>}
-          {map.pins.map((p, i) => <div className="pin" key={i} style={{ left: p.x, top: p.y }}><span>{p.text}</span>
+          {map.pins.map((p, i) => <div className="pin" key={`${i}:${p.x}:${p.y}`} style={{ left: p.x, top: p.y }}><span>{p.text}</span>
             <button aria-label={`Удалить метку ${p.text}`} onClick={() => guard(async () => { await api.RemovePin(map.id, i); await reload() })}>✕</button></div>)}
         </div>
       </div>

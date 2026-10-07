@@ -29,14 +29,14 @@ export function MonsterCard({ m, children }) {
   )
 }
 
-// useBestiary — полный список существ (встроенные и свои), уже упорядоченный по CR и HP.
+// useBestiary – полный список существ (встроенные и свои), уже упорядоченный по CR и HP.
 export function useBestiary(guard, tick = 0) {
   const [list, setList] = useState([])
   useEffect(() => { guard(async () => setList(await api.Bestiary())) }, [guard, tick])
   return list
 }
 
-// MonsterPicker — список существ по возрастанию силы, поиск, фильтр по типу, карточка и кнопка добавления.
+// MonsterPicker – список существ по возрастанию силы, поиск, фильтр по типу, карточка и кнопка добавления.
 export function MonsterPicker({ guard, onAdd, button = 'Добавить', tick = 0, extra, height = 300 }) {
   const list = useBestiary(guard, tick)
   const [q, setQ] = useState('')
@@ -85,7 +85,7 @@ const fromMonster = (m) => ({ id: m.id.startsWith('custom-') ? m.id : undefined,
   abilities: [...m.abilities], weapons: m.weapons.map((w) => ({ name: w.name, dice: w.dice, type: w.type, ranged: !!w.ranged })), multi: (m.multi ?? []).map((i) => i + 1).join(', '),
   traits: (m.traits ?? []).join(', '), resist: [...(m.resist ?? [])], vuln: [...(m.vuln ?? [])], immune: [...(m.immune ?? [])], desc: m.desc ?? '', specials: (m.specials ?? []).map((x) => ({ ...newSpecial(), ...x })) })
 
-// MonsterEditor — создание и правка собственного существа.
+// MonsterEditor – создание и правка собственного существа.
 export function MonsterEditor({ guard, initial, onSaved, onCancel }) {
   const [f, setF] = useState(initial ? fromMonster(initial) : blank())
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
@@ -127,7 +127,7 @@ export function MonsterEditor({ guard, initial, onSaved, onCancel }) {
         </div>))}
       <div className="row tight">
         <button className="ghost" disabled={f.weapons.length >= 8} onClick={() => set('weapons', [...f.weapons, { name: '', dice: '1d6', type: 'slashing', ranged: false }])}>＋ Атака</button>
-        <label className="eq">Мультиатака — номера атак за ход: <input value={f.multi} onChange={(e) => set('multi', e.target.value)} placeholder="1, 1, 2" style={{ width: 110 }} /></label>
+        <label className="eq">Мультиатака – номера атак за ход: <input value={f.multi} onChange={(e) => set('multi', e.target.value)} placeholder="1, 1, 2" style={{ width: 110 }} /></label>
       </div>
       {[['immune', 'Иммунитет', 'ok'], ['resist', 'Сопротивление', ''], ['vuln', 'Уязвимость', 'bad']].map(([k, n, cl]) => (
         <div key={k}><small>{n}</small>
@@ -166,7 +166,7 @@ export function MonsterEditor({ guard, initial, onSaved, onCancel }) {
   )
 }
 
-// MonstersTab — вкладка «Существа» в библиотеке.
+// MonstersTab – вкладка «Существа» в библиотеке.
 export function MonstersTab({ guard, reload }) {
   const [tick, setTick] = useState(0)
   const [edit, setEdit] = useState(null)
@@ -177,7 +177,7 @@ export function MonstersTab({ guard, reload }) {
   if (edit) return <MonsterEditor guard={guard} initial={edit === 'new' ? null : edit} onSaved={done} onCancel={() => setEdit(null)} />
   return (
     <div>
-      <p className="hint">Существа идут по возрастанию уровня опасности (CR), внутри одного CR — по здоровью. Выберите и добавьте на стол: имена нумеруются сами. Данные взяты из SRD и Monster Manual по памяти — сверяйте с книгой.</p>
+      <p className="hint">Существа идут по возрастанию уровня опасности (CR), внутри одного CR – по здоровью. Выберите и добавьте на стол: имена нумеруются сами. Данные взяты из SRD и Monster Manual по памяти – сверяйте с книгой.</p>
       <MonsterPicker guard={guard} tick={tick} button="Добавить на стол" onAdd={(id, n, m) => guard(async () => { await api.AddMonster(id, n); await reload(); setMsg(`Добавлено: ${m.name} ×${n}`) })}
         extra={(m) => <button className="ghost" title="Создать своё существо на основе этого" onClick={() => setEdit(m)}>Копия для правки</button>} />
       {msg && <p className="hint ok">{msg}</p>}

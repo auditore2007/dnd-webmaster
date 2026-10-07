@@ -1,4 +1,4 @@
-// Package store — хранение состояния. Repository-интерфейс позволяет заменить файл на БД.
+// Package store – хранение состояния. Repository-интерфейс позволяет заменить файл на БД.
 package store
 
 import (
@@ -20,16 +20,16 @@ type Pin struct {
 	Text string  `json:"text"`
 }
 
-// MapMeta — карта из галереи; сама картинка лежит в отдельном файле map-<id>.
+// MapMeta – карта из галереи; сама картинка лежит в отдельном файле map-<id>.
 type MapMeta struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Pins []Pin  `json:"pins"`
-	Grid int    `json:"grid"` // размер клетки в пикселях картинки, 0 — сетки нет
+	Grid int    `json:"grid"` // размер клетки в пикселях картинки, 0 – сетки нет
 	Feet int    `json:"feet"` // сколько футов в клетке
 }
 
-// Snapshot — именованная копия игры. Данные лежат в отдельном файле snap-<id>;
+// Snapshot – именованная копия игры. Данные лежат в отдельном файле snap-<id>;
 // Data заполнен только у снимков старого формата (до переноса) и в хранилищах без файлов.
 type Snapshot struct {
 	ID   string          `json:"id"`
@@ -106,7 +106,7 @@ func (f *FileStore) SaveRaw(b []byte) error {
 	return os.Rename(tmp, f.Path)
 }
 
-// Blob — большие данные (своя карта) хранятся рядом с состоянием отдельным файлом, чтобы не раздувать state.json.
+// Blob – большие данные (своя карта) хранятся рядом с состоянием отдельным файлом, чтобы не раздувать state.json.
 func (f *FileStore) blobPath(name string) string {
 	return filepath.Join(filepath.Dir(f.Path), name+".blob")
 }

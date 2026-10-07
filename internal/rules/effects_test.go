@@ -17,7 +17,7 @@ func TestShieldGivesACUntilNextTurn(t *testing.T) {
 	if got := d.Derive(w).AC; got != base+5 {
 		t.Errorf("КД со щитом %d, ожидалось %d", got, base+5)
 	}
-	d.TurnStart(&seq{v: []int{1}}, w) // начало следующего хода — щит исчезает
+	d.TurnStart(&seq{v: []int{1}}, w) // начало следующего хода – щит исчезает
 	if got := d.Derive(w).AC; got != base || len(w.Effects) != 0 {
 		t.Errorf("щит должен исчезнуть: КД %d, эффектов %d", got, len(w.Effects))
 	}
@@ -28,7 +28,7 @@ func TestHoldPersonParalyzesAndRepeatSaveFrees(t *testing.T) {
 	w := caster(t, "wizard", 5, "int", 17) // СЛ 14
 	foe := dummy(10, 50)
 	hold := model.Spell{Name: "Удержание личности", Level: 2, Ref: "holdperson"}
-	// спасбросок мишени: 1 + 0 = 1 < 14 — провал
+	// спасбросок мишени: 1 + 0 = 1 < 14 – провал
 	if _, err := d.Spell(&seq{v: []int{0}}, w, hold, 2, []*model.Character{foe}, dice.Normal); err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestHoldPersonParalyzesAndRepeatSaveFrees(t *testing.T) {
 	if foe.Has("Парализован") || len(foe.Effects) != 0 || len(lines) == 0 {
 		t.Errorf("повторный спасбросок должен освободить: %v %v", foe.Conditions, lines)
 	}
-	// удачный спасбросок сразу — эффекта нет
+	// удачный спасбросок сразу – эффекта нет
 	w2 := caster(t, "wizard", 5, "int", 17)
 	foe2 := dummy(10, 50)
 	d.Spell(&seq{v: []int{19}}, w2, model.Spell{Name: "Удержание личности", Level: 2, Ref: "holdperson"}, 2, []*model.Character{foe2}, dice.Normal)
@@ -92,7 +92,7 @@ func TestConcentrationCheck(t *testing.T) {
 	if _, lost := d.ConcCheck(&seq{v: []int{18}}, w); lost {
 		t.Error("концентрация должна удержаться")
 	}
-	// без сознания — теряется сразу
+	// без сознания – теряется сразу
 	w.ConcDmg = -1
 	w.HP = 0
 	if _, lost := d.ConcCheck(&seq{v: []int{18}}, w); !lost {
@@ -183,7 +183,7 @@ func TestMonsterParalyzingClawsAppliesConditionOnFailedSave(t *testing.T) {
 	ghoul := monster(model.Special{Key: "claws", Name: "Когти", Mode: "single", Attack: true, Dmg: "2d4", Type: "slashing", Save: "con", DC: 10, Cond: "Парализован", Rounds: 10, Repeat: true})
 	hero := build(t, d, "human", "", "fighter")
 	hero.HP = 50
-	// атака 19 (+5) попадает, затем спасбросок Телосложения 1+1 против 10 — провал
+	// атака 19 (+5) попадает, затем спасбросок Телосложения 1+1 против 10 – провал
 	_, err := d.Special(&seq{v: []int{18, 1, 1, 0}}, "claws", ghoul, []*model.Character{hero})
 	if err != nil {
 		t.Fatal(err)

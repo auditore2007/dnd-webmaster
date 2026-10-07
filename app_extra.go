@@ -47,7 +47,7 @@ func (a *App) AddToEncounter(ids []string) (*combat.Encounter, error) {
 	a.checkpoint()
 	before := e.Seq
 	if err := e.Add(a.rng, ids, a.find); err != nil {
-		a.rollback()
+		a.restore() // Add мог успеть записать инициативу части участников
 		return nil, err
 	}
 	a.logNew(e, before)
@@ -71,7 +71,7 @@ func (a *App) SpawnInBattle(monsterID string, count int) (*combat.Encounter, err
 		}
 	}
 	if err != nil {
-		a.restore() // spawn мог уже добавить существ — возвращаем состояние из истории
+		a.restore() // spawn мог уже добавить существ – возвращаем состояние из истории
 		return nil, err
 	}
 	return e.Clone(), a.persist()
@@ -132,7 +132,7 @@ func (a *App) ClearMonsters() (int, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.state.Encounter != nil {
-		return 0, errors.New("идёт бой — сначала завершите его")
+		return 0, errors.New("идёт бой – сначала завершите его")
 	}
 	a.checkpoint()
 	removed := map[string]bool{}
@@ -295,7 +295,7 @@ type blobStore interface {
 
 const maxMapChars = 14 << 20
 
-// MapInfo — карта без картинки (картинка запрашивается отдельно).
+// MapInfo – карта без картинки (картинка запрашивается отдельно).
 type MapInfo struct {
 	ID     string      `json:"id"`
 	Name   string      `json:"name"`

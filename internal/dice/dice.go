@@ -1,4 +1,4 @@
-// Package dice — броски кубиков. Roller вынесен в интерфейс, чтобы в тестах
+// Package dice – броски кубиков. Roller вынесен в интерфейс, чтобы в тестах
 // подставлять предсказуемый генератор.
 package dice
 
@@ -12,7 +12,7 @@ import (
 
 type Roller interface{ Intn(n int) int }
 
-// RNG — боевой генератор.
+// RNG – боевой генератор.
 type RNG struct{}
 
 func (RNG) Intn(n int) int { return rand.IntN(n) }
@@ -49,7 +49,7 @@ func D20(r Roller, m Mode) (kept int, rolls []int) {
 	return kept, []int{a, b}
 }
 
-// Expr — запись вида 2d6+3.
+// Expr – запись вида 2d6+3.
 type Expr struct{ Count, Sides, Mod int }
 
 var exprRe = regexp.MustCompile(`^(\d*)d(\d+)\s*(?:([+-])\s*(\d+))?$`)

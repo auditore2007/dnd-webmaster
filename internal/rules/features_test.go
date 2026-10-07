@@ -9,7 +9,7 @@ import (
 	"heroesbook/internal/model"
 )
 
-// dummy — существо-мишень без особенностей.
+// dummy – существо-мишень без особенностей.
 func dummy(ac, hp int) *model.Character {
 	return &model.Character{ID: "m", Name: "Манекен", Ruleset: "dnd5e", Level: 1, HP: hp, Abilities: map[string]int{"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
 		Stat: &model.MonsterStat{AC: ac, MaxHP: hp}}
@@ -243,7 +243,7 @@ func TestFireballAreaAndHalf(t *testing.T) {
 	if w.SlotsUsed[2] != 1 {
 		t.Error("ячейка 3 уровня потрачена")
 	}
-	// улучшение: ячейка 4 уровня — 9d6
+	// улучшение: ячейка 4 уровня – 9d6
 	w.Spells[0].Level = 3
 	a.HP = 100
 	d.Spell(&seq{v: []int{3, 3, 3, 3, 3, 3, 3, 3, 3, 0}}, w, w.Spells[0], 3, []*model.Character{a}, dice.Normal)
@@ -422,7 +422,7 @@ func TestSubclassCatalogIntegrity(t *testing.T) {
 		}
 	}
 	if len(dndClasses) < 16 || total < 80 {
-		t.Errorf("классов %d, подклассов %d — ожидалось больше", len(dndClasses), total)
+		t.Errorf("классов %d, подклассов %d – ожидалось больше", len(dndClasses), total)
 	}
 	// новые классы создаются и считаются
 	for _, id := range []string{"mystic", "gunslinger"} {

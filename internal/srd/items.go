@@ -1,4 +1,4 @@
-// Package srd — снаряжение D&D 5e: оружие, доспехи, снаряжение, инструменты, транспорт, магические предметы.
+// Package srd – снаряжение D&D 5e: оружие, доспехи, снаряжение, инструменты, транспорт, магические предметы.
 package srd
 
 import (
@@ -11,7 +11,7 @@ import (
 
 var rarity = map[string]string{"c": "обычный", "u": "необычный", "r": "редкий", "v": "очень редкий", "l": "легендарный", "a": "артефакт"}
 
-// parse читает таблицу. Категория берётся из заголовка "#cat"; предмет с ar= — доспех, с ac= — щит.
+// parse читает таблицу. Категория берётся из заголовка "#cat"; предмет с ar= – доспех, с ac= – щит.
 func parse(table string, out *[]model.Item) {
 	cat := "gear"
 	for _, ln := range strings.Split(table, "\n") {
@@ -28,7 +28,7 @@ func parse(table string, out *[]model.Item) {
 			continue
 		}
 		it := model.Item{Name: p[0], Qty: 1, Cat: cat, Desc: p[3]}
-		if p[1] != "—" {
+		if p[1] != "–" {
 			it.Price = p[1]
 		}
 		it.Weight, _ = strconv.ParseFloat(p[2], 64)

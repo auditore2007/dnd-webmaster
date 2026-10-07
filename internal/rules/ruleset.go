@@ -1,4 +1,4 @@
-// Package rules — системы правил. Ruleset — стратегия: бой и интерфейс не знают,
+// Package rules – системы правил. Ruleset – стратегия: бой и интерфейс не знают,
 // по каким правилам считается КД, здоровье, попадание и смерть. Интерфейс разбит на роли.
 package rules
 
@@ -32,7 +32,7 @@ type Feat struct {
 	Level int    `json:"level"`
 	Name  string `json:"name"`
 	Desc  string `json:"desc"`
-	Key   string `json:"-"` // непустой ключ — способность с механикой (rage, secondwind)
+	Key   string `json:"-"` // непустой ключ – способность с механикой (rage, secondwind)
 }
 
 type Subclass struct {
@@ -73,7 +73,7 @@ type Catalog struct {
 	Spells      []SpellDef `json:"spells"`
 }
 
-// Core — создание героя и производные значения.
+// Core – создание героя и производные значения.
 type Core interface {
 	ID() string
 	Catalog() Catalog
@@ -81,27 +81,27 @@ type Core interface {
 	Derive(c *model.Character) model.Derived
 }
 
-// Combatant — всё, что нужно бою.
+// Combatant – всё, что нужно бою.
 type Combatant interface {
 	Initiative(r dice.Roller, c *model.Character) int
 	Attack(r dice.Roller, atk, def *model.Character, w model.Weapon, m dice.Mode) model.AttackResult
 	Resist(def *model.Character, damageType string) float64
 	AfterDamage(c *model.Character, wasDown, crit bool)
 	TurnStart(r dice.Roller, c *model.Character) (lines []string, skip bool)
-	// EndTurn — конец хода: повторные спасброски от эффектов.
+	// EndTurn – конец хода: повторные спасброски от эффектов.
 	EndTurn(r dice.Roller, c *model.Character) []string
-	// ConcCheck — проверка концентрации после урона; lost — заклинание сорвано.
+	// ConcCheck – проверка концентрации после урона; lost – заклинание сорвано.
 	ConcCheck(r dice.Roller, c *model.Character) (lines []string, lost bool)
 	Survives(c *model.Character) (msg string, counter, ok bool)
 	Special(r dice.Roller, key string, src *model.Character, foes []*model.Character) ([]string, error)
 	DeathSave(r dice.Roller, c *model.Character) (string, error)
-	// Ability применяет способность класса или подкласса (кости превосходства, ки, канал…). extra — дополнительные атаки в этот ход.
+	// Ability применяет способность класса или подкласса (кости превосходства, ки, канал…). extra – дополнительные атаки в этот ход.
 	Ability(r dice.Roller, key string, src, tgt *model.Character) (msg string, extra int, err error)
 	// Spell творит заклинание из каталога: тратит ячейку и применяет эффект к целям.
 	Spell(r dice.Roller, src *model.Character, s model.Spell, slot int, targets []*model.Character, m dice.Mode) ([]string, error)
 }
 
-// Progression — опыт, отдых, заклинания.
+// Progression – опыт, отдых, заклинания.
 type Progression interface {
 	XPFor(level int) int
 	LevelPoints(level int) int
@@ -207,7 +207,7 @@ func itemEffects(c *model.Character) (fx []effect, ac int) {
 	return
 }
 
-// allWeapons — собственное оружие героя плюс оружие из надетых предметов.
+// allWeapons – собственное оружие героя плюс оружие из надетых предметов.
 func allWeapons(c *model.Character) []model.Weapon {
 	out := append([]model.Weapon(nil), c.Weapons...)
 	for _, it := range c.Inventory {

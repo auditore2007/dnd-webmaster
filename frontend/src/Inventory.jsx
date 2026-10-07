@@ -8,7 +8,7 @@ import { COINS, COIN_NAMES, COIN_ORDER, priceGP } from './labels.js'
 const w1 = (n) => +(n ?? 0).toFixed(1)
 const COIN_GP = { pp: 10, gp: 1, ep: 0.5, sp: 0.1, cp: 0.01 }
 
-// Inventory — инвентарь героя: нагрузка, кошелёк, предметы по категориям, передача другому герою.
+// Inventory – инвентарь героя: нагрузка, кошелёк, предметы по категориям, передача другому герою.
 export default function Inventory({ h, d, rs, lib, chars, save, act, guard, reload }) {
   const inv = h.inventory ?? []
   const [q, setQ] = useState('')
@@ -82,7 +82,7 @@ export default function Inventory({ h, d, rs, lib, chars, save, act, guard, relo
           </div>))}</div>
         <table className="coinref" aria-label="Расшифровка монет">
           <thead><tr><th>Сокр.</th><th>Монета</th><th>Стоимость</th></tr></thead>
-          <tbody>{[['pp', '10 ЗМ'], ['gp', '1 ЗМ — основная'], ['ep', '½ ЗМ (5 СМ)'], ['sp', '1/10 ЗМ (10 ММ)'], ['cp', '1/100 ЗМ']].map(([k, v]) =>
+          <tbody>{[['pp', '10 ЗМ'], ['gp', '1 ЗМ – основная'], ['ep', '½ ЗМ (5 СМ)'], ['sp', '1/10 ЗМ (10 ММ)'], ['cp', '1/100 ЗМ']].map(([k, v]) =>
             <tr key={k}><td><b>{COINS[k]}</b></td><td>{COIN_NAMES[k]}</td><td>{v}</td></tr>)}</tbody>
         </table>
         <p className="hint">50 монет любого вида весят 1 фунт.</p>
@@ -104,7 +104,7 @@ export default function Inventory({ h, d, rs, lib, chars, save, act, guard, relo
               <div className={'irow it' + (x.equipped ? ' on' : '')} key={i}>
                 <ItemIcon item={x} size={26} />
                 <span className="ln"><b>{x.name}</b>{info && <small>{info}</small>}</span>
-                <span className="wt" title="Вес одной штуки / всего">{x.weight ? <>{w1(x.weight)}{x.qty > 1 ? <> · <b>{w1(tot)}</b></> : null} <small>фнт</small></> : <small>—</small>}</span>
+                <span className="wt" title="Вес одной штуки / всего">{x.weight ? <>{w1(x.weight)}{x.qty > 1 ? <> · <b>{w1(tot)}</b></> : null} <small>фнт</small></> : <small>–</small>}</span>
                 <span className="qty"><button aria-label={`Меньше: ${x.name}`} onClick={() => (x.qty > 1 ? setInv(i, { qty: x.qty - 1 }) : drop(i))}>−</button>{x.qty}<button aria-label={`Больше: ${x.name}`} onClick={() => setInv(i, { qty: x.qty + 1 })}>+</button></span>
                 <label className="eq"><input type="checkbox" checked={!!x.equipped} onChange={(e) => setInv(i, { equipped: e.target.checked })} /> надето</label>
                 {mates.length > 0 && <button className="ghost small" title="Передать другому герою" aria-label={`Передать: ${x.name}`} onClick={() => setXfer(xfer?.i === i ? null : { i, to: mates[0].id, qty: 1 })}>⇄</button>}
@@ -118,7 +118,7 @@ export default function Inventory({ h, d, rs, lib, chars, save, act, guard, relo
         </div>))}
 
       <details className="cf"><summary>＋ Добавить из каталога</summary>
-        {lib.length > 0 ? <ItemPicker lib={lib} onGive={(id, qty) => act(api.GiveItem(h.id, id, qty))} /> : <p className="hint">Каталог пуст — загрузите предметы в «Библиотеке».</p>}</details>
+        {lib.length > 0 ? <ItemPicker lib={lib} onGive={(id, qty) => act(api.GiveItem(h.id, id, qty))} /> : <p className="hint">Каталог пуст – загрузите предметы в «Библиотеке».</p>}</details>
       <details className="cf"><summary>✎ Быстро записать свой предмет</summary>
         <div className="row tight">
           <input placeholder="Название" aria-label="Название предмета" value={nw.name} onChange={(e) => setNw({ ...nw, name: e.target.value })} />

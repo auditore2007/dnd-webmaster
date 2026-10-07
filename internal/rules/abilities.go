@@ -12,14 +12,14 @@ import (
 	"heroesbook/internal/model"
 )
 
-// Способности классов и подклассов. Каждая — строка таблицы abTable; движок общий:
+// Способности классов и подклассов. Каждая – строка таблицы abTable; движок общий:
 //   ресурс (ки, кости превосходства…) → тратится при применении, восстанавливается на отдыхе;
 //   надбавка к удару (rider) → срабатывает на следующем попадании;
 //   лечение, временные HP, эффект на себя/союзника/врага, дополнительные атаки, возврат ячеек;
 //   особая способность по области или цели (изгнание нежити, сияющий рассвет).
 // Правила упрощены: описание у каждой способности говорит, что именно считается.
 
-// ctx — всё, что нужно, чтобы вычислить число или кубики способности.
+// ctx – всё, что нужно, чтобы вычислить число или кубики способности.
 type ctx struct {
 	C    *model.Character
 	Lvl  int
@@ -62,7 +62,7 @@ func huntDie(x ctx) string {
 
 func one(f func(x ctx) string) val { return func(x ctx) string { return "1" + f(x) } }
 
-// poolDef — ресурс класса.
+// poolDef – ресурс класса.
 type poolDef struct {
 	Name, Rest string // Rest: battle | short | long
 	ShortLvl   int    // с какого уровня восстанавливается и на коротком отдыхе
@@ -107,7 +107,7 @@ func (p poolDef) restFor(lvl int) string {
 	return p.Rest
 }
 
-// effectSpec — эффект, который способность накладывает на цель.
+// effectSpec – эффект, который способность накладывает на цель.
 type effectSpec struct {
 	Name   string
 	Rounds int
@@ -117,16 +117,16 @@ type effectSpec struct {
 	Once   bool
 }
 
-// riderSpec — надбавка к ближайшему попаданию (или ко всем, пока не снимут, если Persist).
+// riderSpec – надбавка к ближайшему попаданию (или ко всем, пока не снимут, если Persist).
 type riderSpec struct {
 	Dice    val
-	Type    string // "" — тип оружия
+	Type    string // "" – тип оружия
 	Persist bool
 	Crit    bool // попадание станет критическим
 	Save    string
 	Cond    string
 	Rounds  int
-	DC      string // характеристика СЛ: str, dex, … или "sd" — большая из Силы и Ловкости
+	DC      string // характеристика СЛ: str, dex, … или "sd" – большая из Силы и Ловкости
 }
 
 type ab struct {
@@ -138,12 +138,12 @@ type ab struct {
 	Pool       string
 	Cost       int
 	Slot       bool   // тратит самую низкую свободную ячейку заклинаний
-	Target     string // "" — на себя; ally; foe
+	Target     string // "" – на себя; ally; foe
 	Heal       val
 	HealPool   bool // лечит столько, сколько не хватает, из запаса пула
 	Temp       val
 	Fx         *effectSpec
-	Extra      int // дополнительные атаки в этот ход; -1 — полный набор атак
+	Extra      int // дополнительные атаки в этот ход; -1 – полный набор атак
 	Rider      *riderSpec
 	HPCost     val
 	Regain     string // arcane | slot1…slot5
@@ -164,7 +164,7 @@ func efx(name string, rounds int, cond string) *effectSpec {
 var abTable = []ab{
 	// Варвар
 	{Class: "barbarian", Lvl: 2, Key: "reckless", Name: "Безрассудная атака", Fx: efx("Безрассудная атака", 1, "Безрассудство"),
-		Desc: "Преимущество на ваши атаки, но и по вам с преимуществом — до начала вашего следующего хода."},
+		Desc: "Преимущество на ваши атаки, но и по вам с преимуществом – до начала вашего следующего хода."},
 	{Class: "barbarian", Sub: "berserker", Lvl: 3, Key: "frenzy", Name: "Бешенство", Passive: true, Desc: "В ярости +1 атака за ход (атака бонусным действием)."},
 	{Class: "barbarian", Sub: "totem", Lvl: 3, Key: "bear", Name: "Тотемный дух: медведь", Passive: true, Desc: "В ярости сопротивление всему урону, кроме психического."},
 	{Class: "barbarian", Sub: "zealot", Lvl: 3, Key: "fury", Name: "Божественная ярость", Passive: true, Desc: "В ярости раз за ход +1d6 + половина уровня излучением к первому попаданию."},
@@ -193,10 +193,10 @@ var abTable = []ab{
 		Fx: &effectSpec{Name: "Направляющий удар", Rounds: 1, Once: true, Atk: k("10")}, Desc: "Канал: +10 к следующему броску атаки."},
 	{Class: "cleric", Sub: "tempest", Lvl: 1, Key: "wrathstorm", Name: "Гнев бури", Pool: "wrath", Cost: 1, DC: "wis",
 		Special: &model.Special{Mode: "single", Type: "lightning", Save: "dex", Half: true}, SpecialDmg: k("2d8"),
-		Desc: "Реакция: 2d8 молнией по врагу, спасбросок Ловкости — половина."},
+		Desc: "Реакция: 2d8 молнией по врагу, спасбросок Ловкости – половина."},
 	{Class: "cleric", Sub: "light", Lvl: 2, Key: "dawn", Name: "Сияющий рассвет", Pool: "cd", Cost: 1, DC: "wis",
 		Special: &model.Special{Mode: "area", Type: "radiant", Save: "con", Half: true}, SpecialDmg: num2("2d10", func(x ctx) int { return x.Lvl }),
-		Desc: "Канал: 2d10 + уровень излучением по всем врагам, спасбросок Телосложения — половина."},
+		Desc: "Канал: 2d10 + уровень излучением по всем врагам, спасбросок Телосложения – половина."},
 
 	// Друид
 	{Class: "druid", Lvl: 2, Key: "wildshape", Name: "Дикий облик", Pool: "wild", Cost: 1, Temp: num(func(x ctx) int { return 3 * x.Lvl }),
@@ -223,7 +223,7 @@ var abTable = []ab{
 		Temp: func(x ctx) string { return "1" + supDie(x) + "+" + strconv.Itoa(max(0, x.M["dex"])) }, Desc: "Упрощённо: временные HP = кость превосходства + Ловкость (гасит урон)."},
 	{Class: "fighter", Sub: "battlemaster", Lvl: 3, Key: "rally", Name: "Манёвр: сплочение", Pool: "sup", Cost: 1, Target: "ally",
 		Temp: func(x ctx) string { return "1" + supDie(x) + "+" + strconv.Itoa(max(0, x.M["cha"])) }, Desc: "Союзник получает временные HP: кость превосходства + Харизма."},
-	{Class: "fighter", Sub: "eldritchknight", Lvl: 3, Key: "ekcast", Name: "Колдовство воина", Passive: true, Desc: "Ячейки заклинаний как у третьего заклинателя, характеристика Интеллект. Заклинания — из списка волшебника."},
+	{Class: "fighter", Sub: "eldritchknight", Lvl: 3, Key: "ekcast", Name: "Колдовство воина", Passive: true, Desc: "Ячейки заклинаний как у третьего заклинателя, характеристика Интеллект. Заклинания – из списка волшебника."},
 	{Class: "fighter", Sub: "samurai", Lvl: 3, Key: "spirit", Name: "Боевой дух", Pool: "spirit", Cost: 1,
 		Temp: num(func(x ctx) int { return 5 * (1 + b2i(x.Lvl >= 10) + b2i(x.Lvl >= 15)) }), Fx: efx("Боевой дух", 1, "Преимущество"),
 		Desc: "Преимущество на атаки до следующего хода и временные HP: 5 (10 с 10-го, 15 с 15-го уровня)."},
@@ -339,7 +339,7 @@ func (d DnD5e) ctxOf(c *model.Character) ctx {
 	return ctx{C: c, Lvl: lvl, Prof: 2 + (lvl-1)/4, M: ds}
 }
 
-// mods — модификаторы без вызова Derive (чтобы не зациклиться): базовые значения плюс эффекты предметов.
+// mods – модификаторы без вызова Derive (чтобы не зациклиться): базовые значения плюс эффекты предметов.
 func (d DnD5e) mods(c *model.Character) map[string]int {
 	fx, _ := itemEffects(c)
 	eff := applyEffects(c.Abilities, fx)
@@ -350,7 +350,7 @@ func (d DnD5e) mods(c *model.Character) map[string]int {
 	return out
 }
 
-// abilitiesFor — способности героя на его уровне (в порядке таблицы).
+// abilitiesFor – способности героя на его уровне (в порядке таблицы).
 func abilitiesFor(c *model.Character) (out []ab) {
 	if c.Stat != nil {
 		return nil
@@ -383,7 +383,7 @@ func poolLeft(c *model.Character, x ctx, p string) (left, mx int) {
 	return max(0, mx-c.Counters[poolKey(p)]), mx
 }
 
-// poolViews — ресурсы, которыми пользуются способности героя.
+// poolViews – ресурсы, которыми пользуются способности героя.
 func (d DnD5e) poolViews(c *model.Character) (out []model.PoolView) {
 	x := d.ctxOf(c)
 	seen := map[string]bool{}
@@ -402,7 +402,7 @@ func (d DnD5e) poolViews(c *model.Character) (out []model.PoolView) {
 	return out
 }
 
-// abilityFeatures — кнопки способностей на листе героя и в бою.
+// abilityFeatures – кнопки способностей на листе героя и в бою.
 func (d DnD5e) abilityFeatures(c *model.Character) (fs []model.Feature) {
 	x := d.ctxOf(c)
 	for _, a := range abilitiesFor(c) {
@@ -472,8 +472,8 @@ func (d DnD5e) spendSlot(c *model.Character) (int, error) {
 	return 0, errors.New("нет свободных ячеек заклинаний")
 }
 
-// Ability применяет способность. tgt — выбранная цель (союзник или враг); для способностей на себя игнорируется.
-// extra — сколько атак добавить в текущий ход (-1 — полный набор).
+// Ability применяет способность. tgt – выбранная цель (союзник или враг); для способностей на себя игнорируется.
+// extra – сколько атак добавить в текущий ход (-1 – полный набор).
 func (d DnD5e) Ability(r dice.Roller, key string, src, tgt *model.Character) (msg string, extra int, err error) {
 	a, ok := findAb(src, key)
 	switch {
@@ -515,7 +515,7 @@ func (d DnD5e) Ability(r dice.Roller, key string, src, tgt *model.Character) (ms
 		healAmt = min(left, missing)
 		if healAmt <= 0 {
 			if left <= 0 {
-				return "", 0, errors.New("запас исчерпан — нужен долгий отдых")
+				return "", 0, errors.New("запас исчерпан – нужен долгий отдых")
 			}
 			return "", 0, errors.New(t.Name + " не нуждается в лечении")
 		}
@@ -615,7 +615,7 @@ func (d DnD5e) Ability(r dice.Roller, key string, src, tgt *model.Character) (ms
 	if hpCost > 0 {
 		parts = append(parts, fmt.Sprintf("цена %d HP", hpCost))
 	}
-	return fmt.Sprintf("%s: %s — %s", src.Name, a.Name, strings.Join(parts, "; ")), extra, nil
+	return fmt.Sprintf("%s: %s – %s", src.Name, a.Name, strings.Join(parts, "; ")), extra, nil
 }
 
 func (d DnD5e) canRegain(c *model.Character, what string) error {
@@ -655,7 +655,7 @@ func (d DnD5e) regain(c *model.Character, what string) string {
 
 // ---------- надбавки к удару ----------
 
-// activeRiders — активные надбавки героя в стабильном порядке.
+// activeRiders – активные надбавки героя в стабильном порядке.
 func activeRiders(c *model.Character) (out []ab) {
 	var keys []string
 	for k, on := range c.Active {
@@ -700,10 +700,10 @@ func (d DnD5e) applyRiders(r dice.Roller, a, t *model.Character, w model.Weapon,
 			dc := dcOf(x, rd.DC)
 			tot := d.saveRoll(r, t, rd.Save)
 			if tot >= dc {
-				note += fmt.Sprintf(" [%s: спасбросок %s против %d — успех]", ab.Name, saveText(tot), dc)
+				note += fmt.Sprintf(" [%s: спасбросок %s против %d – успех]", ab.Name, saveText(tot), dc)
 			} else {
 				AddEffect(t, model.Effect{Name: ab.Name, Rounds: rd.Rounds, Cond: rd.Cond, Src: a.ID})
-				note += fmt.Sprintf(" [%s: спасбросок %s против %d — %s]", ab.Name, saveText(tot), dc, rd.Cond)
+				note += fmt.Sprintf(" [%s: спасбросок %s против %d – %s]", ab.Name, saveText(tot), dc, rd.Cond)
 			}
 		}
 		if !rd.Persist {
@@ -713,7 +713,7 @@ func (d DnD5e) applyRiders(r dice.Roller, a, t *model.Character, w model.Weapon,
 	return total, note
 }
 
-// autoBonus — пассивные надбавки подклассов: убийца колоссов, божественная ярость.
+// autoBonus – пассивные надбавки подклассов: убийца колоссов, божественная ярость.
 func (d DnD5e) autoBonus(r dice.Roller, a, t *model.Character, w model.Weapon, crit bool) (int, string) {
 	lvl := clampLevel(a.Level)
 	if a.Active["tb"] {
@@ -765,7 +765,7 @@ func (d DnD5e) heroSpecial(r dice.Roller, key string, src *model.Character, foes
 
 // ---------- отдых ----------
 
-// restPools сбрасывает ресурсы: battle — конец боя, short — короткий отдых, long — долгий.
+// restPools сбрасывает ресурсы: battle – конец боя, short – короткий отдых, long – долгий.
 func restPools(c *model.Character, kind string) {
 	lvl := clampLevel(c.Level)
 	for p, def := range pools {

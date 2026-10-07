@@ -36,7 +36,7 @@ export function pickImage(file, max = 256, quality = 0.82) {
   })
 }
 
-// pickMap — то же для карты: без обрезки, длинная сторона не больше max.
+// pickMap – то же для карты: без обрезки, длинная сторона не больше max.
 export function pickMap(file, max = 3000, quality = 0.88) {
   return new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith('image/')) return reject(new Error('Нужна картинка'))

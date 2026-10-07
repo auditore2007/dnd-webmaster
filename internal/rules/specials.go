@@ -125,7 +125,7 @@ func (d DnD5e) runSpecial(r dice.Roller, s model.Special, src *model.Character, 
 		for _, t := range foes {
 			tot := d.saveRoll(r, t, s.Save)
 			ok := tot >= s.DC
-			lines = append(lines, fmt.Sprintf("%s: спасбросок %s против %d — %s", t.Name, saveText(tot), s.DC, map[bool]string{true: "успех", false: "провал"}[ok]))
+			lines = append(lines, fmt.Sprintf("%s: спасбросок %s против %d – %s", t.Name, saveText(tot), s.DC, map[bool]string{true: "успех", false: "провал"}[ok]))
 			a, b := dmg, x
 			if ok {
 				if !s.Half {
@@ -165,7 +165,7 @@ func (d DnD5e) runSpecial(r dice.Roller, s model.Special, src *model.Character, 
 	if s.Save != "" {
 		tot := d.saveRoll(r, t, s.Save)
 		ok := tot >= s.DC
-		lines = append(lines, fmt.Sprintf("%s: спасбросок %s против %d — %s", t.Name, saveText(tot), s.DC, map[bool]string{true: "успех", false: "провал"}[ok]))
+		lines = append(lines, fmt.Sprintf("%s: спасбросок %s против %d – %s", t.Name, saveText(tot), s.DC, map[bool]string{true: "успех", false: "провал"}[ok]))
 		x := roll(s.XDmg, crit)
 		switch {
 		case !ok:

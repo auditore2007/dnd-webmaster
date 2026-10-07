@@ -88,12 +88,12 @@ func TestAttackRules(t *testing.T) {
 	atk := build(t, d, "human", "", "fighter") // СИЛ 11
 	def := build(t, d, "tiefling", "", "wizard")
 	w := model.Weapon{Name: "Меч", Dice: "1d8", Ability: "str", Type: "fire"}
-	// 20 — автоматическое попадание и крит; кубики удваиваются; тифлинг получает половину огненного урона
+	// 20 – автоматическое попадание и крит; кубики удваиваются; тифлинг получает половину огненного урона
 	res := d.Attack(&seq{v: []int{19, 5, 5}}, atk, def, w, dice.Normal)
 	if !res.Hit || !res.Crit || res.Damage != (6+6+0)/2 {
 		t.Errorf("крит: %+v", res)
 	}
-	// 1 — всегда промах, даже против КД 0
+	// 1 – всегда промах, даже против КД 0
 	def.ACBonus = -10
 	if res := d.Attack(&seq{v: []int{0}}, atk, def, w, dice.Normal); res.Hit {
 		t.Errorf("натуральная 1 должна промахиваться: %+v", res)
@@ -221,7 +221,7 @@ func TestInventoryEffects(t *testing.T) {
 func TestConditionsAttackMode(t *testing.T) {
 	a, tg := &model.Character{}, &model.Character{HP: 5}
 	if condMode(a, tg, dice.Normal) != dice.Normal {
-		t.Error("без состояний — обычный бросок")
+		t.Error("без состояний – обычный бросок")
 	}
 	a.Conditions = []string{"Отравлен"}
 	if condMode(a, tg, dice.Normal) != dice.Disadvantage {
@@ -233,7 +233,7 @@ func TestConditionsAttackMode(t *testing.T) {
 	}
 	a.Conditions = nil
 	if condMode(a, tg, dice.Normal) != dice.Advantage {
-		t.Error("по парализованному — преимущество")
+		t.Error("по парализованному – преимущество")
 	}
 }
 

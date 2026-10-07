@@ -1,6 +1,6 @@
 import { ICONS } from './icons.js'
 
-// Icon — иконка из набора game-icons.net (CC BY 3.0). Неизвестное имя не рисуется.
+// Icon – иконка из набора game-icons.net (CC BY 3.0). Неизвестное имя не рисуется.
 export function Icon({ n, size = 18, title, className = '' }) {
   const d = ICONS[n]
   if (!d) return null

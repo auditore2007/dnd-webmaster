@@ -3,7 +3,7 @@ import { api } from './api'
 import { Icon, ItemIcon } from './Icon.jsx'
 import { COINS, CRS, COIN_ORDER } from './labels.js'
 
-// Treasure — генератор добычи. В бою (enc) считает за всех существ боя; в библиотеке — за выбранные CR.
+// Treasure – генератор добычи. В бою (enc) считает за всех существ боя; в библиотеке – за выбранные CR.
 export default function Treasure({ chars, guard, reload, enc = false, notify }) {
   const [crs, setCrs] = useState([])
   const [pick, setPick] = useState('1')
@@ -14,7 +14,7 @@ export default function Treasure({ chars, guard, reload, enc = false, notify }) 
   const [given, setGiven] = useState({})
   const heroes = chars.filter((c) => c.kind !== 'monster' && !c.dead)
   const target = heroes.some((h) => h.id === who) ? who : heroes[0]?.id ?? ''
-  const sel = split ?? heroes.map((h) => h.id)
+  const sel = (split ?? heroes.map((h) => h.id)).filter((id) => heroes.some((h) => h.id === id))
   const roll = () => guard(async () => { setT(enc ? await api.EncounterTreasure(hoard) : await api.RollTreasure(crs, hoard)); setGiven({}) })
   const give = (it, i) => guard(async () => { await api.GiveLoot(target, it, Math.max(1, it.qty)); setGiven((g) => ({ ...g, [i]: target })); await reload(); notify?.(`${heroes.find((h) => h.id === target)?.name} получает ${it.name}`) })
   const giveAll = () => guard(async () => {
@@ -28,7 +28,7 @@ export default function Treasure({ chars, guard, reload, enc = false, notify }) 
     <section className="treas">
       <h3><Icon n="treasure" size={22} /> Сокровища{enc ? ' за бой' : ''}</h3>
       {!enc && <>
-        <p className="hint">Добавьте уровни опасности (CR) существ, с которых падает добыча. «Клад» — сокровища логова, обычно за главного врага. Таблицы упрощены по Руководству мастера.</p>
+        <p className="hint">Добавьте уровни опасности (CR) существ, с которых падает добыча. «Клад» – сокровища логова, обычно за главного врага. Таблицы упрощены по Руководству мастера.</p>
         <div className="row tight">
           <select aria-label="CR" value={pick} onChange={(e) => setPick(e.target.value)}>{CRS.map((c) => <option key={c} value={c}>CR {c}</option>)}</select>
           <button className="ghost" onClick={() => setCrs((x) => [...x, pick])}>＋ Добавить</button>

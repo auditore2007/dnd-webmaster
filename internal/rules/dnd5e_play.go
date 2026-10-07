@@ -50,7 +50,7 @@ func setActive(c *model.Character, key string, v bool) {
 
 func clampLevel(l int) int { return max(1, min(20, l)) }
 
-// armorClass: лучший из доступных способов — надетый доспех, защита без доспехов класса или 10 + Ловкость.
+// armorClass: лучший из доступных способов – надетый доспех, защита без доспехов класса или 10 + Ловкость.
 func armorClass(c *model.Character, mods map[string]int, itemAC int) int {
 	dex := mods["dex"]
 	best, worn := 10+dex, false
@@ -106,7 +106,7 @@ func (d DnD5e) features(c *model.Character, lvl int) (fs []model.Feature) {
 	case "halforc":
 		fs = append(fs, model.Feature{Key: "relentless", Name: "Непоколебимая стойкость", Kind: "passive", On: c.Used["relentless"], Desc: "Раз до долгого отдыха остаётся с 1 HP вместо 0."})
 	case "dragonborn":
-		fs = append(fs, model.Feature{Key: "breath", Name: "Дыхание дракона", Kind: "special", Mode: "area", On: c.Used["breath"], Desc: "Конус по всем врагам, спасбросок Ловкости — половина урона. Применяется в бою."})
+		fs = append(fs, model.Feature{Key: "breath", Name: "Дыхание дракона", Kind: "special", Mode: "area", On: c.Used["breath"], Desc: "Конус по всем врагам, спасбросок Ловкости – половина урона. Применяется в бою."})
 	}
 	return fs
 }
@@ -180,7 +180,7 @@ func (d DnD5e) Derive(c *model.Character) model.Derived {
 	return out
 }
 
-// classWeapons — оружие, которое даёт сам класс: удар монаха и психический клинок.
+// classWeapons – оружие, которое даёт сам класс: удар монаха и психический клинок.
 func classWeapons(c *model.Character, lvl int) (out []model.Weapon) {
 	if c.Class == "monk" {
 		out = append(out, model.Weapon{Name: "Удар монаха", Dice: "1" + martialDie(ctx{Lvl: lvl}), Ability: "dex", Type: "bludgeoning", Finesse: true})
@@ -219,8 +219,8 @@ func critMin(c *model.Character) int {
 	return 20
 }
 
-// Attack: d20 + модификатор + мастерство против КД. Крит — 20 (или порог чемпиона), 1 — промах.
-// Существа бьют с фиксированным бонусом. По парализованному или бессознательному цели попадание — критическое.
+// Attack: d20 + модификатор + мастерство против КД. Крит – 20 (или порог чемпиона), 1 – промах.
+// Существа бьют с фиксированным бонусом. По парализованному или бессознательному цели попадание – критическое.
 func (d DnD5e) Attack(r dice.Roller, a, t *model.Character, w model.Weapon, m dice.Mode) model.AttackResult {
 	da, dt := d.Derive(a), d.Derive(t)
 	ab := abilityOr(w.Ability, "str")
@@ -236,7 +236,7 @@ func (d DnD5e) Attack(r dice.Roller, a, t *model.Character, w model.Weapon, m di
 	kept, rolls := dice.D20(r, mode)
 	fxBonus, _ := atkDice(r, a)
 	total := kept + bonus + fxBonus
-	res := model.AttackResult{Rolls: rolls, Total: total, Target: dt.AC}
+	res := model.AttackResult{Rolls: rolls, Kept: kept, Total: total, Target: dt.AC}
 	cm := critMin(a)
 	res.Hit = kept >= cm || (kept != 1 && total >= dt.AC)
 	res.Crit = res.Hit && (kept >= cm || hasAny(t, dndAutoCrit) || t.Down() || (a.Stat == nil && riderCrit(a)))
@@ -280,7 +280,7 @@ func (d DnD5e) Attack(r dice.Roller, a, t *model.Character, w model.Weapon, m di
 
 var physicalTypes = []string{"slashing", "piercing", "bludgeoning"}
 
-// Resist: множитель урона. У существ — иммунитет (0), уязвимость (×2), сопротивление (×½); у героев — расовое и ярость варвара.
+// Resist: множитель урона. У существ – иммунитет (0), уязвимость (×2), сопротивление (×½); у героев – расовое и ярость варвара.
 func (DnD5e) Resist(def *model.Character, ty string) float64 {
 	if s := def.Stat; s != nil {
 		switch {
@@ -302,7 +302,7 @@ func (DnD5e) Resist(def *model.Character, ty string) float64 {
 	return 1
 }
 
-// Rest: battle — конец боя (сбрасывает ярость и скрытую атаку), short/long — отдыхи.
+// Rest: battle – конец боя (сбрасывает ярость и скрытую атаку), short/long – отдыхи.
 func (d DnD5e) Rest(c *model.Character, kind string) {
 	switch kind {
 	case "battle":
@@ -342,7 +342,7 @@ func (d DnD5e) Toggle(c *model.Character, key string) (string, error) {
 	case heavyWorn(c):
 		return "", errors.New("в тяжёлых доспехах впасть в ярость нельзя")
 	case c.Counters["rage"] >= rages(lvl):
-		return "", errors.New("ярость закончилась — нужен долгий отдых")
+		return "", errors.New("ярость закончилась – нужен долгий отдых")
 	}
 	c.Count("rage", 1)
 	setActive(c, "rage", true)
@@ -357,7 +357,7 @@ func (d DnD5e) Act(r dice.Roller, c *model.Character, key string) (string, error
 	case c.Dead || c.Down():
 		return "", errors.New("герой без сознания")
 	case c.Used["secondwind"]:
-		return "", errors.New("второе дыхание уже использовано — нужен отдых")
+		return "", errors.New("второе дыхание уже использовано – нужен отдых")
 	}
 	n := dice.Expr{Count: 1, Sides: 10, Mod: clampLevel(c.Level)}.Roll(r, false).Total
 	before := c.HP

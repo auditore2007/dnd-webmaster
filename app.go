@@ -27,7 +27,7 @@ import (
 
 var errNotFound = errors.New("герой не найден")
 
-// App — фасад для интерфейса: единственная точка входа, все методы под одним мьютексом.
+// App – фасад для интерфейса: единственная точка входа, все методы под одним мьютексом.
 // Каждое изменение сначала откладывает копию состояния (Undo), затем пишет на диск.
 type App struct {
 	mu    sync.Mutex
@@ -36,8 +36,9 @@ type App struct {
 	rng   dice.Roller
 	warn  string
 	hist  [][]byte
-	saved []byte // состояние на момент последнего persist (JSON)
-	dirty bool   // состояние менялось после persist (например, бросок дописал журнал)
+	saved []byte   // состояние на момент последнего persist (JSON)
+	drops []string // файлы снимков, которые удаляются после успешной записи состояния
+	dirty bool     // состояние менялось после persist (например, бросок дописал журнал)
 }
 
 func NewApp() *App {
@@ -135,7 +136,7 @@ type RollView struct {
 	Total   int    `json:"total"`
 	DC      int    `json:"dc"`
 	Success bool   `json:"success"`
-	Sides   int    `json:"sides"` // 20 для d20-проверок; для свободного броска — число граней
+	Sides   int    `json:"sides"` // 20 для d20-проверок; для свободного броска – число граней
 	Mode    string `json:"mode"`  // adv | dis | ""
 	Kind    string `json:"kind"`  // roll | check | save | skill
 }
@@ -168,7 +169,7 @@ func (a *App) view(c *model.Character) CharView {
 	return CharView{Character: c.Clone(), Derived: rs.Derive(c)}
 }
 
-// rawSaver — хранилище, которое принимает уже сериализованное состояние, чтобы не делать Marshal дважды.
+// rawSaver – хранилище, которое принимает уже сериализованное состояние, чтобы не делать Marshal дважды.
 type rawSaver interface{ SaveRaw([]byte) error }
 
 const maxUndo = 50
@@ -181,13 +182,18 @@ func (a *App) persist() error {
 	}
 	a.saved, a.dirty = b, false
 	if rs, ok := a.store.(rawSaver); ok {
-		return rs.SaveRaw(b)
+		err = rs.SaveRaw(b)
+	} else {
+		err = a.store.Save(a.state)
 	}
-	return a.store.Save(a.state)
+	if err == nil {
+		a.flushDrops()
+	}
+	return err
 }
 
 // checkpoint откладывает копию состояния для Undo. Если с последнего persist состояние не менялось,
-// берутся уже готовые байты — повторной сериализации всей игры на каждый клик нет.
+// берутся уже готовые байты – повторной сериализации всей игры на каждый клик нет.
 func (a *App) checkpoint() {
 	b := a.saved
 	if b == nil || a.dirty {
@@ -259,7 +265,7 @@ func (a *App) Catalog() []rules.Catalog {
 	return out
 }
 
-// Bestiary — встроенные и собственные существа по возрастанию опасности (CR), затем HP.
+// Bestiary – встроенные и собственные существа по возрастанию опасности (CR), затем HP.
 func (a *App) Bestiary() []bestiary.Monster {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -655,8 +661,8 @@ func (a *App) UseFeature(id, key string) (CharView, error) {
 	})
 }
 
-// UseAbility — способность класса или подкласса (кости превосходства, ки, наложение рук…).
-// targetID — союзник или враг, если способности нужна цель. Дополнительные атаки сразу добавляются в текущий ход боя.
+// UseAbility – способность класса или подкласса (кости превосходства, ки, наложение рук…).
+// targetID – союзник или враг, если способности нужна цель. Дополнительные атаки сразу добавляются в текущий ход боя.
 func (a *App) UseAbility(id, key, targetID string) (CharView, error) {
 	return a.with(id, func(c *model.Character, rs rules.Ruleset) (string, error) {
 		return a.ability(c, rs, key, targetID)
@@ -764,7 +770,7 @@ func (a *App) GiveItem(charID, libID string, qty int) (CharView, error) {
 
 // ---------- броски ----------
 
-// Roll — свободный бросок. Запись d20 понимает преимущество и помеху.
+// Roll – свободный бросок. Запись d20 понимает преимущество и помеху.
 func (a *App) Roll(expr, mode string) (RollView, error) {
 	e, err := dice.Parse(expr)
 	if err != nil {
@@ -787,7 +793,7 @@ func (a *App) Roll(expr, mode string) (RollView, error) {
 	return v, nil
 }
 
-// Check — проверка характеристики или спасбросок (kind = "save").
+// Check – проверка характеристики или спасбросок (kind = "save").
 func (a *App) Check(id, ability, kind, mode string, dc int) (RollView, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -823,7 +829,7 @@ func (a *App) Check(id, ability, kind, mode string, dc int) (RollView, error) {
 		return RollView{}, fmt.Errorf("неизвестная характеристика: %q", ability)
 	}
 	if s, has := d.Saves[ability]; kind == "save" && has {
-		bonus, label = s, c.Name+": спасбросок — "+abName
+		bonus, label = s, c.Name+": спасбросок – "+abName
 	}
 	k, rolls := dice.D20(a.rng, dice.ParseMode(mode))
 	v := RollView{Label: label, Rolls: rolls, Kept: k, Bonus: bonus, Total: k + bonus, DC: dc, Sides: 20, Kind: kind}
@@ -849,7 +855,7 @@ func (a *App) logNew(e *combat.Encounter, before int) {
 		e.Won = w
 		switch w {
 		case "heroes":
-			e.Log = append([]string{"🏆 Победа! Все враги повержены — завершите бой, чтобы убрать их со стола"}, e.Log...)
+			e.Log = append([]string{"🏆 Победа! Все враги повержены – завершите бой, чтобы убрать их со стола"}, e.Log...)
 			e.Seq++
 		case "monsters":
 			e.Log = append([]string{"☠️ Герои пали"}, e.Log...)
@@ -875,7 +881,7 @@ func (a *App) StartEncounter(ids []string) (*combat.Encounter, error) {
 	return e.Clone(), a.persist()
 }
 
-// Attack: weapon — индекс в списке оружия атакующего (derived.weapons), -1 означает безоружный удар.
+// Attack: weapon – индекс в списке оружия атакующего (derived.weapons), -1 означает безоружный удар.
 func (a *App) Attack(targetID string, weapon int, mode string) (EncounterView, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -1001,7 +1007,7 @@ func (a *App) CastSpell(spell, slot int, targetIDs []string, mode string) (*comb
 	return e.Clone(), a.persist()
 }
 
-// UseSpecial — особая способность текущего участника (например, дыхание дракона).
+// UseSpecial – особая способность текущего участника (например, дыхание дракона).
 func (a *App) UseSpecial(key string) (*combat.Encounter, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

@@ -74,7 +74,7 @@ func TestDyingHeroRollsDeathSaveOnTurn(t *testing.T) {
 	r := &seq{v: []int{5, 10, 15}}
 	e, _ := Start(r, []string{"a", "b", "c"}, get)
 	m["b"].HP = 0
-	r.v = []int{14} // 15 на кубике — успех
+	r.v = []int{14} // 15 на кубике – успех
 	e.Next(r, get)  // c → b: b должен бросить спасбросок и пропустить ход
 	if m["b"].DeathOk != 1 || e.Current() != "a" {
 		t.Errorf("спасбросок от смерти: ok=%d, ходит %s, лог %v", m["b"].DeathOk, e.Current(), e.Log)
@@ -116,7 +116,7 @@ func TestAttackOnDownedHeroCostsDeathSave(t *testing.T) {
 	m["b"].HP = 0
 	w := model.Weapon{Name: "Кинжал", Dice: "1d4", Ability: "dex"}
 	if res, err := e.Attack(&seq{v: []int{9, 1}}, get, "b", w, dice.Normal); err != nil || !res.Hit || !res.Crit {
-		t.Fatalf("удар по лежащему — критический: %+v %v", res, err)
+		t.Fatalf("удар по лежащему – критический: %+v %v", res, err)
 	}
 	if m["b"].DeathFail != 2 {
 		t.Errorf("крит по лежащему даёт 2 провала, у героя %d", m["b"].DeathFail)
@@ -165,7 +165,7 @@ func TestDragonbornBreathOncePerRest(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := e.Special(&seq{v: []int{3}}, get, "breath"); err == nil {
-		t.Error("второй выдох в тот же ход — ошибка")
+		t.Error("второй выдох в тот же ход – ошибка")
 	}
 	e.Acted = false
 	if err := e.Special(&seq{v: []int{3}}, get, "breath"); err == nil {
@@ -330,7 +330,7 @@ func TestConcentrationBreaksWhenHitAndEndsEffects(t *testing.T) {
 	cl.HP = 100
 	rs, _ := rules.Get("dnd5e")
 	rules.Strike(rs, cl, 30, false)
-	e.settle(&seq{v: []int{0}}, get) // бросок 1 против СЛ 15 — концентрация сорвана
+	e.settle(&seq{v: []int{0}}, get) // бросок 1 против СЛ 15 – концентрация сорвана
 	if cl.Conc != "" || len(tgt.Effects) != 0 {
 		t.Errorf("эффект должен исчезнуть вместе с концентрацией: conc=%q эффекты=%d", cl.Conc, len(tgt.Effects))
 	}
@@ -358,7 +358,7 @@ func TestParalyzedFoeSkipsTurnAndRollsRepeatSave(t *testing.T) {
 	e, _ := Start(&seq{v: []int{19, 10, 0}}, []string{"a", "b", "c"}, get)
 	victim := m[e.Order[1]]
 	rules.AddEffect(victim, model.Effect{Name: "Паралич", Rounds: 10, Cond: "Парализован", Save: "con", DC: 30, Src: "x"})
-	e.Next(&seq{v: []int{5}}, get) // ход переходит на парализованного — пропускается, спасбросок провален
+	e.Next(&seq{v: []int{5}}, get) // ход переходит на парализованного – пропускается, спасбросок провален
 	if e.Current() == victim.ID {
 		t.Error("парализованный не может ходить")
 	}

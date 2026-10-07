@@ -24,7 +24,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	b, _ := os.ReadFile(f.Path)
 	if strings.Contains(string(b), "\n  ") {
-		t.Error("состояние пишется с отступами — файл раздувается")
+		t.Error("состояние пишется с отступами – файл раздувается")
 	}
 }
 

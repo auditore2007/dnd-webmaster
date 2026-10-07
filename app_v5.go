@@ -16,7 +16,7 @@ import (
 
 // ---------- бой: способности по цели, реакции, эффекты ----------
 
-// UseSpecialAt — способность существа «по одной цели» (укус с ядом, парализующие когти).
+// UseSpecialAt – способность существа «по одной цели» (укус с ядом, парализующие когти).
 func (a *App) UseSpecialAt(key, targetID string) (*combat.Encounter, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -48,7 +48,7 @@ func (a *App) ToggleReaction(id string) (*combat.Encounter, error) {
 	return e.Clone(), a.persist()
 }
 
-// DropConcentration — мастер обрывает концентрацию заклинателя вручную.
+// DropConcentration – мастер обрывает концентрацию заклинателя вручную.
 func (a *App) DropConcentration(id string) (*combat.Encounter, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -75,7 +75,7 @@ func (a *App) DropConcentration(id string) (*combat.Encounter, error) {
 	return a.state.Encounter.Clone(), a.persist()
 }
 
-// AddEffect — мастер вешает на существо свой эффект (горение, проклятие, чужое заклинание) с длительностью в ходах.
+// AddEffect – мастер вешает на существо свой эффект (горение, проклятие, чужое заклинание) с длительностью в ходах.
 func (a *App) AddEffect(id, name string, rounds int, cond string) (CharView, error) {
 	return a.with(id, func(c *model.Character, rs rules.Ruleset) (string, error) {
 		name = strings.TrimSpace(name)
@@ -110,7 +110,7 @@ func (a *App) RemoveEffect(id string, idx int) (CharView, error) {
 
 func validCoin(kind string) bool { return slices.Contains(model.CoinOrder, kind) }
 
-// AdjustCoins меняет кошелёк героя на delta монет (минус — потратить).
+// AdjustCoins меняет кошелёк героя на delta монет (минус – потратить).
 func (a *App) AdjustCoins(id, kind string, delta int) (CharView, error) {
 	return a.with(id, func(c *model.Character, rs rules.Ruleset) (string, error) {
 		if !validCoin(kind) {
@@ -197,7 +197,7 @@ func (a *App) RollTreasure(crs []string, hoard bool) (treasure.Treasure, error) 
 	return t, a.persist()
 }
 
-// EncounterTreasure — добыча за всех существ текущего боя.
+// EncounterTreasure – добыча за всех существ текущего боя.
 func (a *App) EncounterTreasure(hoard bool) (treasure.Treasure, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -285,7 +285,7 @@ const (
 	maxQuickSaves = 5
 )
 
-// QuickSave — быстрое сохранение одной кнопкой (Ctrl+S). Хранится пять последних.
+// QuickSave – быстрое сохранение одной кнопкой (Ctrl+S). Хранится пять последних.
 func (a *App) QuickSave() (SnapshotInfo, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -311,7 +311,7 @@ func (a *App) QuickSave() (SnapshotInfo, error) {
 
 // ---------- карта: сетка и туман войны ----------
 
-// SetMapGrid включает сетку (size — пикселей в клетке, 0 выключает) и задаёт футы в клетке.
+// SetMapGrid включает сетку (size – пикселей в клетке, 0 выключает) и задаёт футы в клетке.
 func (a *App) SetMapGrid(id string, size, feet int) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -331,7 +331,7 @@ func (a *App) SetMapGrid(id string, size, feet int) error {
 
 const maxFogChars = 2 << 20
 
-// SetFog сохраняет маску тумана (data:image/png, непрозрачное — скрыто); пустая строка убирает туман.
+// SetFog сохраняет маску тумана (data:image/png, непрозрачное – скрыто); пустая строка убирает туман.
 func (a *App) SetFog(id, data string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()

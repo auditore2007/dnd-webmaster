@@ -5,16 +5,18 @@ import { Avatar } from './Portrait.jsx'
 import { Icon, CondIcon } from './Icon.jsx'
 import Treasure from './Treasure.jsx'
 import Abilities from './Abilities.jsx'
+import { HpMeter } from './Meter.jsx'
+import { keptD20 } from './rollText.js'
 
 const isMon = (c) => c?.kind === 'monster'
 
-export default function Encounter({ chars, cat, mode, guard, reload, addRolls, notify }) {
+export default function Encounter({ chars, cat, mode, guard, reload, throwDice, notify, rev }) {
   const [enc, setEnc] = useState(null)
   const [ids, setIds] = useState([])
   const [target, setTarget] = useState('')
   const [wi, setWi] = useState(null)
   const [confirm, setConfirm] = useState(false)
-  useEffect(() => { guard(async () => setEnc(await api.Encounter())) }, [guard])
+  useEffect(() => { guard(async () => setEnc(await api.Encounter())) }, [guard, rev])
 
   const by = Object.fromEntries(chars.map((c) => [c.id, c]))
   const toggle = (id) => setIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
@@ -58,19 +60,30 @@ export default function Encounter({ chars, cat, mode, guard, reload, addRolls, n
   const specials = (cur?.derived?.features ?? []).filter((f) => f.kind === 'special')
   const out = chars.filter((c) => !enc.order.includes(c.id) && !c.dead)
   const standing = enc.order.filter((id) => alive(by[id]))
-  const entry = (res, name) => ({ kind: 'attack', sides: 20, label: `${cur.name} → ${name} (${wname})`, rolls: res.rolls ?? [], kept: (res.rolls ?? [])[0], total: res.total, target: res.target, hit: res.hit, crit: res.crit, damage: res.damage, damageText: res.damageText })
+  const entry = (res, name) => ({ kind: 'attack', sides: 20, mode, label: `${cur.name} → ${name} (${wname})`, rolls: res.rolls ?? [], kept: res.kept || keptD20(res.rolls, mode), total: res.total, target: res.target, hit: res.hit, crit: res.crit, damage: res.damage, damageText: res.damageText })
+  // attack: бросок атаки с анимацией в лотке; all – все оставшиеся атаки хода по одной цели
+  const attack = (all) => {
+    const name = by[tgt]?.name ?? ''
+    const count = (mode ? 2 : 1) * (all ? Math.max(1, enc.left) : 1)
+    return throwDice(async () => {
+      const v = all ? await api.AttackAll(tgt, wsel, mode) : await api.Attack(tgt, wsel, mode)
+      setEnc(v.encounter)
+      await reload()
+      return (all ? v.results ?? [] : [v.result]).map((r) => entry(r, name))
+    }, { sides: 20, count })
+  }
   const end = (clear) => run(async () => { const n = await api.EndEncounter(clear); setEnc(null); setConfirm(false); notify(n ? `Бой окончен. Убрано существ: ${n}` : 'Бой окончен') })
 
   return (
     <section className="bt">
-      <h2>Раунд {enc.round}</h2>
+      <h2 className="round" key={enc.round}>Раунд <b>{enc.round}</b></h2>
       <div className="order">
         {enc.order.map((id, i) => { const c = by[id]; if (!c) return null
-          return <div key={id} className={'bi' + (i === enc.turn ? ' now' : '') + (!alive(c) ? ' down' : '') + (isMon(c) ? ' foe' : '')}>
+          return <div key={id} style={{ '--i': i }} className={'bi' + (i === enc.turn ? ' now' : '') + (!alive(c) ? ' down' : '') + (isMon(c) ? ' foe' : '')}>
             <div className="bh"><Avatar hero={c} size={38} /><b>{c.name}</b>
-              <button className="ghost small push" title="Убрать из боя (убежал или не участвует)" aria-label={`Убрать из боя: ${c.name}`} onClick={() => run(async () => { const e = await api.RemoveFromEncounter(id); setEnc(e) ; if (!e) notify('В бою не осталось участников — бой завершён') })}>✕</button></div>
+              <button className="ghost small push" title="Убрать из боя (убежал или не участвует)" aria-label={`Убрать из боя: ${c.name}`} onClick={() => run(async () => { const e = await api.RemoveFromEncounter(id); setEnc(e) ; if (!e) notify('В бою не осталось участников – бой завершён') })}>✕</button></div>
             <small>{isMon(c) ? 'враг' : 'герой'} · иниц. {enc.init[id]}{c.dead ? ' · погиб' : !alive(c) ? (isMon(c) ? ' · повержен' : c.stable ? ' · стабилен' : ` · умирает ✓${c.deathOk} ✗${c.deathFail}`) : ''}</small>
-            <div className="meter" style={{ '--p': Math.round((Math.max(0, c.hp) / Math.max(1, c.derived.maxHp)) * 100) + '%' }}><b>{c.hp} / {c.derived.maxHp}</b></div>
+            <HpMeter hp={c.hp} max={c.derived?.maxHp ?? 0} temp={c.tempHp} label={`Здоровье: ${c.name}`} />
             {(c.conditions?.length > 0 || c.effects?.length > 0 || c.conc) && <div className="chips">
               {c.conditions?.map((x) => <span className="chip" key={x}><CondIcon name={x} /> {x}</span>)}
               {c.effects?.map((e, k) => <span className="chip fx" key={e.id ?? k} title={[e.cond && 'Состояние: ' + e.cond, e.save && `повторный спасбросок ${e.save.toUpperCase()} СЛ ${e.dc}`, e.conc && 'держится на концентрации'].filter(Boolean).join(' · ')}>
@@ -100,13 +113,13 @@ export default function Encounter({ chars, cat, mode, guard, reload, addRolls, n
         <label>Цель<select value={tgt ?? ''} onChange={(e) => setTarget(e.target.value)}>{foes.map((id) => <option key={id} value={id}>{by[id].name}{alive(by[id]) ? '' : ' (повержен)'}</option>)}</select></label>
         <label>Оружие<select value={wsel} onChange={(e) => setWi(+e.target.value)}><option value={-1}>Безоружный удар (1d4)</option>
           {ws.map((w, i) => <option key={i} value={i}>{w.name} · {w.dice}</option>)}</select></label>
-        <button className="primary" disabled={!tgt} onClick={() => run(async () => { const v = await api.Attack(tgt, wsel, mode); setEnc(v.encounter); addRolls([entry(v.result, by[tgt].name)]) })}>Атаковать{enc.left > 1 ? ` (${enc.left} ост.)` : ''}</button>
-        {enc.left > 1 && <button className="primary" disabled={!tgt} title="Все оставшиеся атаки хода по выбранной цели" onClick={() => run(async () => { const v = await api.AttackAll(tgt, wsel, mode); setEnc(v.encounter); addRolls((v.results ?? []).map((r) => entry(r, by[tgt].name))) })}>{isMon(cur) && cur.stat?.multi?.length ? 'Мультиатака' : 'Все атаки'}</button>}
-        {!isMon(cur) && <Abilities h={cur} chars={chars} inFight call={(p) => run(async () => { await p; setEnc(await api.Encounter()) })} />}
-        {cur.spells?.length > 0 && rs?.spells?.length > 0 && <SpellPanel cur={cur} rs={rs} foes={foesAlive} allies={allies} by={by} tgt={tgt} mode={mode} run={run} setEnc={setEnc} />}
+        <button className="primary" disabled={!tgt} onClick={() => attack(false)}>Атаковать{enc.left > 1 ? ` (${enc.left} ост.)` : ''}</button>
+        {enc.left > 1 && <button className="primary" disabled={!tgt} title="Все оставшиеся атаки хода по выбранной цели" onClick={() => attack(true)}>{isMon(cur) && cur.stat?.multi?.length ? 'Мультиатака' : 'Все атаки'}</button>}
+        {!isMon(cur) && <Abilities key={cur.id} h={cur} chars={chars} inFight call={(p) => run(async () => { await p; setEnc(await api.Encounter()) })} />}
+        {cur.spells?.length > 0 && rs?.spells?.length > 0 && <SpellPanel key={cur.id} cur={cur} rs={rs} foes={foesAlive} allies={allies} by={by} tgt={tgt} mode={mode} run={run} setEnc={setEnc} />}
         {specials.map((f) => <button key={f.key} className="ghost spec" disabled={f.on || (f.mode === 'single' && !tgt)} title={f.desc + (f.mode === 'single' ? ' Бьёт выбранную цель.' : mixed ? ' Бьёт только врагов.' : '')}
           onClick={() => run(async () => setEnc(f.mode === 'single' ? await api.UseSpecialAt(f.key, tgt) : await api.UseSpecial(f.key)))}>{f.mode === 'single' ? '🎯' : '💥'} {f.name}{f.on ? ' (нет)' : ''}</button>)}
-        <EffectForm chars={enc.order.map((id) => by[id]).filter(Boolean)} rs={rs} cur={cur} tgt={tgt} run={run} />
+        <EffectForm key={cur.id} chars={enc.order.map((id) => by[id]).filter(Boolean)} rs={rs} cur={cur} tgt={tgt} run={run} />
       </div>}
       <details className="cf" open={!!enc.won}>
         <summary><Icon n="treasure" /> Добыча за бой</summary>
@@ -121,7 +134,7 @@ export default function Encounter({ chars, cat, mode, guard, reload, addRolls, n
             <button className="ghost danger" onClick={() => end(true)} title="Все существа из этого боя исчезнут со стола">Закончить, убрать всех врагов</button>
             <button className="ghost" onClick={() => setConfirm(false)}>Отмена</button></>}
       </div>
-      <ul className="log">{enc.log.map((l, i) => <li key={i}>{l}</li>)}</ul>
+      <ul className="log">{enc.log.map((l, i) => <li key={enc.seq - i}>{l}</li>)}</ul>
     </section>
   )
 }
@@ -130,7 +143,7 @@ function Pick({ c, ids, toggle }) {
   return <label className="pk"><input type="checkbox" checked={ids.includes(c.id)} onChange={() => toggle(c.id)} /> {c.name} <small>{c.kind === 'monster' ? `CR ${c.stat.cr}` : `ур. ${c.level}`} · {c.hp}/{c.derived?.maxHp} HP{c.dead ? ' · погиб' : ''}</small></label>
 }
 
-// SpellPanel: заклинание текущего участника. ⚡ — урон и лечение считаются автоматически; ◎ — концентрация; ✨ — накладывает эффект на выбранные цели.
+// SpellPanel: заклинание текущего участника. ⚡ – урон и лечение считаются автоматически; ◎ – концентрация; ✨ – накладывает эффект на выбранные цели.
 function SpellPanel({ cur, rs, foes, allies, by, tgt, mode, run, setEnc }) {
   const [i, setI] = useState(0)
   const [slot, setSlot] = useState(0)
@@ -162,7 +175,7 @@ function SpellPanel({ cur, rs, foes, allies, by, tgt, mode, run, setEnc }) {
         {slots.map((x) => <option key={x.level} value={x.level}>ячейка {x.level} ур. ({left(x.level)})</option>)}</select>}
       {heal && !def.area && <select aria-label="Кого лечить" value={ally || cur.id} onChange={(e) => setAlly(e.target.value)}>{allies.map((id) => <option key={id} value={id}>{by[id].name}{id === cur.id ? ' (себя)' : ''}</option>)}</select>}
       {multi && def?.targets !== 'self' && pool.length > 0 && <div className="chips">{pool.map((id) => <button key={id} className="chip" aria-pressed={picked.includes(id)} onClick={() => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))}>{by[id].name}</button>)}
-        <small>{picked.length ? 'выбранные цели' : fxOnly ? (def.targets === 'ally' ? 'без выбора — на себя' : 'без выбора — на выбранную выше цель') : heal ? 'без выбора — вся команда' : 'без выбора — все враги'}</small></div>}
+        <small>{picked.length ? 'выбранные цели' : fxOnly ? (def.targets === 'ally' ? 'без выбора – на себя' : 'без выбора – на выбранную выше цель') : heal ? 'без выбора – вся команда' : 'без выбора – все враги'}</small></div>}
       {def?.conc && <small className="hint">◎ Концентрация{cur.conc ? `: «${cur.conc}» будет прервана` : ''}. Урон заставит сделать спасбросок Телосложения.</small>}
       <button className="primary" disabled={needTarget && !targets[0]} onClick={() => run(async () => { setEnc(await api.CastSpell(i, use, targets.filter(Boolean), mode)); setPicked([]) })}>Сотворить{def?.mode ? ' ⚡' : fxOnly ? ' ✨' : ''}</button>
     </div>
@@ -182,7 +195,7 @@ function EffectForm({ chars, rs, cur, tgt, run }) {
       <div className="row tight">
         <select aria-label="На кого" value={id} onChange={(e) => setWho(e.target.value)}>{chars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <input aria-label="Название эффекта" placeholder="Название (горит, проклят…)" value={name} onChange={(e) => setName(e.target.value)} />
-        <label className="inl">ходов <input type="number" min="0" max="1000" value={rounds} onChange={(e) => setRounds(+e.target.value)} style={{ width: 64 }} title="0 — пока не снимут вручную" /></label>
+        <label className="inl">ходов <input type="number" min="0" max="1000" value={rounds} onChange={(e) => setRounds(Math.max(0, Math.min(1000, parseInt(e.target.value, 10) || 0)))} style={{ width: 64 }} title="0 – пока не снимут вручную" /></label>
         <select aria-label="Состояние" value={cond} onChange={(e) => setCond(e.target.value)}><option value="">без состояния</option>{(rs?.conditions ?? []).map((c) => <option key={c}>{c}</option>)}</select>
         <button className="ghost" disabled={!name.trim()} onClick={() => run(async () => { await api.AddEffect(id, name, rounds, cond); setName('') })}>Наложить</button>
       </div>

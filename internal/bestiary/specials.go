@@ -4,22 +4,22 @@ import "heroesbook/internal/model"
 
 type sp = model.Special
 
-// poison — укус или жало с ядом: попадание наносит обычный урон, затем спасбросок Телосложения против ядовитого урона.
+// poison – укус или жало с ядом: попадание наносит обычный урон, затем спасбросок Телосложения против ядовитого урона.
 func poison(key, name, dmg, ty, xdmg string, dc int) sp {
 	return sp{Key: key, Name: name, Mode: "single", Attack: true, Dmg: dmg, Type: ty, Save: "con", DC: dc, XDmg: xdmg, XType: "poison", Half: true}
 }
 
-// breath — дыхание: дальняя область по всем врагам, перезарядка 5–6.
+// breath – дыхание: дальняя область по всем врагам, перезарядка 5–6.
 func breath(name, dmg, ty, save string, dc int) sp {
 	return sp{Key: "breath", Name: name, Mode: "area", Dmg: dmg, Type: ty, Save: save, DC: dc, Half: true, Recharge: true}
 }
 
-// fright — устрашающее присутствие.
+// fright – устрашающее присутствие.
 func fright(dc int) sp {
 	return sp{Key: "fright", Name: "Устрашающее присутствие", Mode: "area", Save: "wis", DC: dc, Cond: "Напуган", Rounds: 10, Repeat: true, Once: true}
 }
 
-// Особые способности существ, которые применяются из боя одной кнопкой. Значения СЛ и урона — по памяти Monster Manual.
+// Особые способности существ, которые применяются из боя одной кнопкой. Значения СЛ и урона – по памяти Monster Manual.
 var builtin = map[string][]sp{
 	"poison-snake": {poison("bite", "Ядовитый укус", "1d4", "piercing", "2d4", 10)},
 	"giant-wasp":   {poison("sting", "Ядовитое жало", "1d6", "piercing", "3d6", 11)},
@@ -32,7 +32,7 @@ var builtin = map[string][]sp{
 	"pseudodragon":      {{Key: "sting", Name: "Усыпляющее жало", Mode: "single", Attack: true, Dmg: "1d4", Type: "piercing", Save: "con", DC: 11, Cond: "Отравлен", Rounds: 10, Repeat: true}},
 	"ghoul":             {{Key: "claws", Name: "Парализующие когти", Mode: "single", Attack: true, Dmg: "2d4", Type: "slashing", Save: "con", DC: 10, Cond: "Парализован", Rounds: 10, Repeat: true}},
 	"ghast":             {{Key: "claws", Name: "Парализующие когти", Mode: "single", Attack: true, Dmg: "3d6", Type: "slashing", Save: "con", DC: 10, Cond: "Парализован", Rounds: 10, Repeat: true}},
-	"cockatrice":        {{Key: "bite", Name: "Окаменяющий укус", Mode: "single", Attack: true, Dmg: "1d4", Type: "piercing", Save: "con", DC: 11, Cond: "Опутан", Rounds: 10, Repeat: true, Desc: "При втором провале — окаменение: решает мастер."}},
+	"cockatrice":        {{Key: "bite", Name: "Окаменяющий укус", Mode: "single", Attack: true, Dmg: "1d4", Type: "piercing", Save: "con", DC: 11, Cond: "Опутан", Rounds: 10, Repeat: true, Desc: "При втором провале – окаменение: решает мастер."}},
 	"basilisk":          {{Key: "gaze", Name: "Окаменяющий взгляд", Mode: "single", Save: "con", DC: 12, Cond: "Опутан", Rounds: 10, Repeat: true, Desc: "Опутанный окаменевает при втором провале."}},
 	"medusa":            {{Key: "gaze", Name: "Окаменяющий взгляд", Mode: "area", Save: "con", DC: 14, Cond: "Опутан", Rounds: 10, Repeat: true, Desc: "Опутанный окаменевает при втором провале."}},
 	"wolf":              {{Key: "trip", Name: "Укус с подсечкой", Mode: "single", Attack: true, Dmg: "2d4", Type: "piercing", Save: "str", DC: 11, Cond: "Сбит с ног", Rounds: 1}},

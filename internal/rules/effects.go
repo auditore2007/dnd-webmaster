@@ -13,17 +13,17 @@ import (
 )
 
 // fx описывает, что заклинание оставляет после себя: длительность, концентрацию, состояние, бонус к КД или атаке.
-// Продолжительность — в раундах (ходах носителя). Rounds 0 — пока не снимут.
+// Продолжительность – в раундах (ходах носителя). Rounds 0 – пока не снимут.
 type fx struct {
 	Dur   int
 	Conc  bool
 	Cond  string // состояние, которое накладывается
-	Save  string // спасбросок цели при наложении; пусто — действует сразу
-	Again string // повторный спасбросок в конце хода (по умолчанию как Save); "-" — без повторов
+	Save  string // спасбросок цели при наложении; пусто – действует сразу
+	Again string // повторный спасбросок в конце хода (по умолчанию как Save); "-" – без повторов
 	AC    int
 	Atk   string
-	Tgt   string // ally | foe | self — кого выбирать
-	Max   int    // сколько целей (0 — одна)
+	Tgt   string // ally | foe | self – кого выбирать
+	Max   int    // сколько целей (0 – одна)
 }
 
 var spellFx = map[string]fx{
@@ -192,7 +192,7 @@ var (
 	saveFatal = -1000
 )
 
-// saveRoll — спасбросок цели с учётом состояний: парализованный, окаменевший, лишённый сознания и ошеломлённый
+// saveRoll – спасбросок цели с учётом состояний: парализованный, окаменевший, лишённый сознания и ошеломлённый
 // автоматически проваливают Силу и Ловкость; опутанный бросает Ловкость с помехой.
 func (d DnD5e) saveRoll(r dice.Roller, t *model.Character, ab string) int {
 	if (ab == "str" || ab == "dex") && hasAny(t, autoFail) {
@@ -248,16 +248,16 @@ func (d DnD5e) EndTurn(r dice.Roller, c *model.Character) (lines []string) {
 		}
 		tot := d.saveRoll(r, c, e.Save)
 		if tot >= e.DC {
-			lines = append(lines, fmt.Sprintf("%s: повторный спасбросок %s — %s против %d, «%s» снят", c.Name, e.Save, saveText(tot), e.DC, e.Name))
+			lines = append(lines, fmt.Sprintf("%s: повторный спасбросок %s – %s против %d, «%s» снят", c.Name, e.Save, saveText(tot), e.DC, e.Name))
 			DropEffect(c, i)
 		} else {
-			lines = append(lines, fmt.Sprintf("%s: повторный спасбросок — %s против %d, «%s» держится", c.Name, saveText(tot), e.DC, e.Name))
+			lines = append(lines, fmt.Sprintf("%s: повторный спасбросок – %s против %d, «%s» держится", c.Name, saveText(tot), e.DC, e.Name))
 		}
 	}
 	return lines
 }
 
-// ConcCheck: после урона заклинатель, держащий концентрацию, бросает Телосложение (СЛ — 10 или половина урона).
+// ConcCheck: после урона заклинатель, держащий концентрацию, бросает Телосложение (СЛ – 10 или половина урона).
 func (d DnD5e) ConcCheck(r dice.Roller, c *model.Character) (lines []string, lost bool) {
 	if c.Conc == "" {
 		c.ConcDmg = 0
@@ -274,9 +274,9 @@ func (d DnD5e) ConcCheck(r dice.Roller, c *model.Character) (lines []string, los
 	dc := max(10, dmg/2)
 	tot := d.saveRoll(r, c, "con")
 	if tot >= dc {
-		return []string{fmt.Sprintf("%s: концентрация на «%s» — спасбросок Телосложения %d против %d, держится", c.Name, c.Conc, tot, dc)}, false
+		return []string{fmt.Sprintf("%s: концентрация на «%s» – спасбросок Телосложения %d против %d, держится", c.Name, c.Conc, tot, dc)}, false
 	}
-	return []string{fmt.Sprintf("%s: концентрация на «%s» — спасбросок Телосложения %s против %d, заклинание сорвано", c.Name, c.Conc, saveText(tot), dc)}, true
+	return []string{fmt.Sprintf("%s: концентрация на «%s» – спасбросок Телосложения %s против %d, заклинание сорвано", c.Name, c.Conc, saveText(tot), dc)}, true
 }
 
 // applySpellFx накладывает эффекты заклинания после броска ячейки.
@@ -287,7 +287,7 @@ func (d DnD5e) applySpellFx(r dice.Roller, src *model.Character, ref, name strin
 		targets = []*model.Character{src}
 	}
 	if f.Tgt == "foe" && len(targets) == 0 {
-		lines = append(lines, "цель не выбрана — эффект не наложен")
+		lines = append(lines, "цель не выбрана – эффект не наложен")
 	}
 	limit := max(1, f.Max)
 	if len(targets) > limit {
@@ -302,10 +302,10 @@ func (d DnD5e) applySpellFx(r dice.Roller, src *model.Character, ref, name strin
 		if f.Save != "" {
 			tot := d.saveRoll(r, t, f.Save)
 			if tot >= ds.SpellDC {
-				lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против СЛ %d — заклинание не действует", t.Name, saveText(tot), ds.SpellDC))
+				lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против СЛ %d – заклинание не действует", t.Name, saveText(tot), ds.SpellDC))
 				continue
 			}
-			lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против СЛ %d — провал", t.Name, saveText(tot), ds.SpellDC))
+			lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против СЛ %d – провал", t.Name, saveText(tot), ds.SpellDC))
 			if f.Again != "-" {
 				e.Save, e.DC = cmp2(f.Again, f.Save), ds.SpellDC
 			}
@@ -319,7 +319,7 @@ func (d DnD5e) applySpellFx(r dice.Roller, src *model.Character, ref, name strin
 		}
 	}
 	if f.Conc && !placed {
-		// ни одна цель не поддалась, но концентрация уже потрачена — метка на заклинателе
+		// ни одна цель не поддалась, но концентрация уже потрачена – метка на заклинателе
 		AddEffect(src, model.Effect{Name: name, Rounds: f.Dur, Src: src.ID, Conc: true})
 	}
 	return lines

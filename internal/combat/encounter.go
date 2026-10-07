@@ -1,4 +1,4 @@
-// Package combat — бой: инициатива, очередь ходов, атаки. Правила берутся у Ruleset героя.
+// Package combat – бой: инициатива, очередь ходов, атаки. Правила берутся у Ruleset героя.
 package combat
 
 import (
@@ -65,7 +65,7 @@ func Start(r dice.Roller, ids []string, get Lookup) (*Encounter, error) {
 	return e, nil
 }
 
-// Clone — независимая копия боя для ответа интерфейсу (nil остаётся nil).
+// Clone – независимая копия боя для ответа интерфейсу (nil остаётся nil).
 func (e *Encounter) Clone() *Encounter {
 	if e == nil {
 		return nil
@@ -220,7 +220,7 @@ func (e *Encounter) DropConc(c *model.Character, get Lookup) {
 	}
 }
 
-// concIDs — номера эффектов концентрации заклинателя (чтобы снять старые после нового заклинания).
+// concIDs – номера эффектов концентрации заклинателя (чтобы снять старые после нового заклинания).
 func (e *Encounter) concIDs(src string, get Lookup) map[int64]bool {
 	out := map[int64]bool{}
 	for _, id := range e.Order {
@@ -249,7 +249,7 @@ func (e *Encounter) Cleanup(get Lookup) {
 
 func (e *Encounter) Current() string { return e.Order[e.Turn] }
 
-// mixed — в бою есть и герои, и существа: тогда «враги» — это противоположная сторона. Если все участники одного вида
+// mixed – в бою есть и герои, и существа: тогда «враги» – это противоположная сторона. Если все участники одного вида
 // (дуэль героев), врагом считается любой другой участник.
 func (e *Encounter) mixed(get Lookup) bool {
 	var mon, hero bool
@@ -265,7 +265,7 @@ func (e *Encounter) mixed(get Lookup) bool {
 	return mon && hero
 }
 
-// Foes — стоящие на ногах противники участника id.
+// Foes – стоящие на ногах противники участника id.
 func (e *Encounter) Foes(get Lookup, id string) (out []*model.Character) {
 	me := get(id)
 	if me == nil {
@@ -323,7 +323,7 @@ func (e *Encounter) Add(r dice.Roller, ids []string, get Lookup) error {
 	return nil
 }
 
-// Remove выводит участника из боя (убежал, убран мастером). Если это был текущий ход — ход переходит дальше.
+// Remove выводит участника из боя (убежал, убран мастером). Если это был текущий ход – ход переходит дальше.
 func (e *Encounter) Remove(r dice.Roller, id string, get Lookup) {
 	i := -1
 	for k, x := range e.Order {
@@ -354,7 +354,7 @@ func (e *Encounter) Remove(r dice.Roller, id string, get Lookup) {
 	}
 }
 
-// Winner: "heroes" или "monsters", если на ногах остались только герои либо только существа; "" — бой продолжается.
+// Winner: "heroes" или "monsters", если на ногах остались только герои либо только существа; "" – бой продолжается.
 func (e *Encounter) Winner(get Lookup) string {
 	var heroes, mons int
 	for _, id := range e.Order {
@@ -442,7 +442,7 @@ func (e *Encounter) report(rs rules.Ruleset, a, d *model.Character, w model.Weap
 	if counter {
 		pre = "↩️ "
 	}
-	e.logf("%s%s → %s (%s): %d против %d — %s", pre, a.Name, d.Name, w.Name, res.Total, res.Target, out)
+	e.logf("%s%s → %s (%s): %d против %d – %s", pre, a.Name, d.Name, w.Name, res.Total, res.Target, out)
 }
 
 // Special применяет особую способность текущего участника (например, дыхание дракона) по всем врагам.

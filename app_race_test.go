@@ -2,13 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"slices"
 	"sync"
 	"testing"
 )
 
 // Wails вызывает методы App в отдельных горутинах и сериализует ответ уже после выхода из метода,
-// то есть без мьютекса. Ответы не должны ссылаться на живое состояние — иначе гонка
-// (а для map — аварийное завершение «concurrent map read and map write»). Запускать с -race.
+// то есть без мьютекса. Ответы не должны ссылаться на живое состояние – иначе гонка
+// (а для map – аварийное завершение «concurrent map read and map write»). Запускать с -race.
 func TestResponsesDoNotShareLiveState(t *testing.T) {
 	a := newApp()
 	h := hero(t, a)
@@ -57,5 +58,28 @@ func TestCloneIsDeep(t *testing.T) {
 	v.Abilities["str"] = 1
 	if got := a.Characters()[0]; got.Purse["gp"] != 5 || got.Abilities["str"] == 1 {
 		t.Errorf("изменение ответа задело состояние: кошелёк %d, сила %d", got.Purse["gp"], got.Abilities["str"])
+	}
+}
+
+// Неудачное добавление в бой не должно оставлять участников «полузаписанными»: иначе их потом нельзя ввести в бой.
+func TestFailedAddToEncounterLeavesNoTrace(t *testing.T) {
+	a := newApp()
+	h := hero(t, a)
+	mons, err := a.AddMonster("goblin", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.StartEncounter([]string{h.ID, mons[0].ID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.AddToEncounter([]string{mons[1].ID, "нет-такого"}); err == nil {
+		t.Fatal("ожидалась ошибка для неизвестного участника")
+	}
+	e, err := a.AddToEncounter([]string{mons[1].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(e.Order, mons[1].ID) {
+		t.Errorf("гоблин не вошёл в бой после неудачной попытки: %v", e.Order)
 	}
 }

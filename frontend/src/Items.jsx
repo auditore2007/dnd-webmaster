@@ -9,7 +9,7 @@ export const itemInfo = (x, abil = []) => [x.price, x.rarity, x.weapon && `⚔ $
 
 const catOrder = Object.keys(CATS)
 
-// filterItems — общий поиск по библиотеке предметов.
+// filterItems – общий поиск по библиотеке предметов.
 export function filterItems(lib, q, cat, rar) {
   const s = q.trim().toLowerCase()
   return lib.filter((x) => (!cat || x.cat === cat) && (!rar || x.rarity === rar) && (!s || x.name.toLowerCase().includes(s) || (x.desc ?? '').toLowerCase().includes(s)))
@@ -28,7 +28,7 @@ export function ItemFilters({ q, setQ, cat, setCat, rar, setRar, lib }) {
   )
 }
 
-// ItemPicker — выдача предмета герою: поиск + категория + выбор.
+// ItemPicker – выдача предмета герою: поиск + категория + выбор.
 export function ItemPicker({ lib, onGive }) {
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
@@ -42,19 +42,19 @@ export function ItemPicker({ lib, onGive }) {
       <ItemFilters q={q} setQ={setQ} cat={cat} setCat={setCat} rar={rar} setRar={setRar} lib={lib} />
       {list.length > 0 ? <div className="row tight">
         <select aria-label="Предмет из библиотеки" value={cur?.id} onChange={(e) => setId(e.target.value)}>
-          {list.slice(0, 300).map((x) => <option key={x.id} value={x.id}>{x.name}{x.price ? ` — ${x.price}` : ''}</option>)}</select>
+          {list.slice(0, 300).map((x) => <option key={x.id} value={x.id}>{x.name}{x.price ? ` – ${x.price}` : ''}</option>)}</select>
         <input type="number" min="1" value={qty} onChange={(e) => setQty(parseInt(e.target.value, 10) || 1)} aria-label="Количество" style={{ width: 70 }} />
         <button className="ghost" onClick={() => cur && onGive(cur.id, qty)}>Добавить</button>
       </div> : <p className="hint">Ничего не найдено.</p>}
       {cur && <p className="hint">{itemInfo(cur)}</p>}
-      {list.length > 300 && <p className="hint">Показаны первые 300 из {list.length} — уточните поиск.</p>}
+      {list.length > 300 && <p className="hint">Показаны первые 300 из {list.length} – уточните поиск.</p>}
     </div>
   )
 }
 
 const blank = { name: '', cat: 'gear', price: '', rarity: '', weight: 0, desc: '', acBonus: 0, ability: '', abilityBonus: 0, wdice: '', wability: 'str', wtype: 'slashing', wbonus: 0, armorBase: 0, armorType: 'light', finesse: false, ranged: false }
 
-// ItemsTab — вкладка «Предметы»: весь каталог, поиск, создание своих.
+// ItemsTab – вкладка «Предметы»: весь каталог, поиск, создание своих.
 export function ItemsTab({ cat: catalog, lib, guard, reload }) {
   const abil = [...new Map(catalog.flatMap((r) => r.abilities).map((a) => [a.id, a])).values()]
   const [q, setQ] = useState('')
@@ -76,7 +76,7 @@ export function ItemsTab({ cat: catalog, lib, guard, reload }) {
   })
   return (
     <div>
-      <p className="hint">В библиотеке {lib.length} предметов: оружие, доспехи, снаряжение, инструменты, транспорт и магические предметы (SRD / PHB / DMG, по памяти — сверяйте цены и свойства с книгой). Выдавайте их героям на листе. Магические «+1/+2/+3» оружие, доспехи и щиты, кольца и плащи защиты действуют автоматически, пока надеты.</p>
+      <p className="hint">В библиотеке {lib.length} предметов: оружие, доспехи, снаряжение, инструменты, транспорт и магические предметы (SRD / PHB / DMG, по памяти – сверяйте цены и свойства с книгой). Выдавайте их героям на листе. Магические «+1/+2/+3» оружие, доспехи и щиты, кольца и плащи защиты действуют автоматически, пока надеты.</p>
       <ItemFilters q={q} setQ={(v) => { setQ(v); setLimit(60) }} cat={cat} setCat={(v) => { setCat(v); setLimit(60) }} rar={rar} setRar={(v) => { setRar(v); setLimit(60) }} lib={lib} />
       <small>Найдено: {list.length}</small>
       {list.slice(0, limit).map((x) => (
@@ -92,14 +92,14 @@ export function ItemsTab({ cat: catalog, lib, guard, reload }) {
             <label>Название<input value={f.name} onChange={set('name')} /></label>
             <label>Категория<select value={f.cat} onChange={set('cat')}>{catOrder.map((c) => <option key={c} value={c}>{CATS[c]}</option>)}</select></label>
             <label>Цена<input value={f.price} onChange={set('price')} placeholder="50 зм" /></label>
-            <label>Редкость<select value={f.rarity} onChange={set('rarity')}><option value="">—</option>{RARITY.map((r) => <option key={r} value={r}>{r}</option>)}</select></label>
+            <label>Редкость<select value={f.rarity} onChange={set('rarity')}><option value="">–</option>{RARITY.map((r) => <option key={r} value={r}>{r}</option>)}</select></label>
             <label>Вес<input type="number" step="0.1" min="0" value={f.weight || ''} onChange={set('weight')} /></label>
             <label>Бонус к КД<input type="number" value={f.acBonus || ''} onChange={set('acBonus')} /></label>
-            <label>Бонус к характеристике<select value={f.ability} onChange={set('ability')}><option value="">—</option>{abil.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+            <label>Бонус к характеристике<select value={f.ability} onChange={set('ability')}><option value="">–</option>{abil.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
             <label>Размер бонуса<input type="number" value={f.abilityBonus || ''} onChange={set('abilityBonus')} /></label>
           </div>
           <label>Описание<textarea value={f.desc} onChange={set('desc')} /></label>
-          <h4>Оружие <small>(заполните «Урон», если предмет — оружие)</small></h4>
+          <h4>Оружие <small>(заполните «Урон», если предмет – оружие)</small></h4>
           <div className="row tight">
             <input placeholder="Урон, напр. 1d8" aria-label="Урон" value={f.wdice} onChange={set('wdice')} style={{ width: 130 }} />
             <select aria-label="Тип урона" value={f.wtype} onChange={set('wtype')}>{Object.entries(DMG).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
@@ -108,7 +108,7 @@ export function ItemsTab({ cat: catalog, lib, guard, reload }) {
             <label className="eq"><input type="checkbox" checked={f.finesse} onChange={set('finesse')} /> фехтовальное</label>
             <label className="eq"><input type="checkbox" checked={f.ranged} onChange={set('ranged')} /> дальнее</label>
           </div>
-          <h4>Доспех <small>(0 — не доспех)</small></h4>
+          <h4>Доспех <small>(0 – не доспех)</small></h4>
           <div className="row tight">
             <input type="number" min="0" max="30" aria-label="Базовый КД доспеха" placeholder="КД" value={f.armorBase || ''} onChange={set('armorBase')} style={{ width: 90 }} />
             <select aria-label="Тип доспеха" value={f.armorType} onChange={set('armorType')}>{Object.entries(ARMOR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>

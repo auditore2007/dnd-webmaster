@@ -6,7 +6,7 @@ import { DMG, MODES } from './labels.js'
 const CLASS_NAMES = { bard: 'бард', cleric: 'жрец', druid: 'друид', paladin: 'паладин', ranger: 'следопыт', sorcerer: 'чародей', warlock: 'колдун', wizard: 'волшебник', artificer: 'изобретатель' }
 export const lvlName = (l) => (l ? `${l} ур.` : 'заговор')
 
-// filterSpells — общий поиск по каталогу: текст, уровень, класс, только автоматические.
+// filterSpells – общий поиск по каталогу: текст, уровень, класс, только автоматические.
 export function filterSpells(list, { q = '', level = '', cls = '', auto = false }) {
   const s = q.trim().toLowerCase()
   return list.filter((x) => (level === '' || x.level === +level) && (!cls || x.classes.includes(cls)) && (!auto || x.mode) && (!s || x.name.toLowerCase().includes(s)))
@@ -27,7 +27,7 @@ export function SpellFilters({ f, setF, classes = true }) {
 
 const blank = { name: '', level: 1, school: '', desc: '', mode: '', dmg: '2d6', type: 'fire', save: 'dex', half: true, area: false, up: '1d6', scale: false }
 
-// SpellEditor — создание и правка собственного заклинания, в том числе с автоматикой урона.
+// SpellEditor – создание и правка собственного заклинания, в том числе с автоматикой урона.
 function SpellEditor({ guard, initial, abilities, onDone }) {
   const [f, setF] = useState(initial ? { id: initial.id, name: initial.name, level: initial.level, school: initial.school ?? '', desc: initial.desc ?? '', mode: initial.auto?.mode ?? '', dmg: initial.auto?.dmg ?? '2d6', type: initial.auto?.type || 'fire', save: initial.auto?.save || 'dex', half: initial.auto?.half ?? true, area: initial.auto?.area ?? false, up: initial.auto?.up ?? '', scale: initial.auto?.scale ?? false } : blank)
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.type === 'number' ? parseInt(e.target.value, 10) || 0 : e.target.value })
@@ -41,7 +41,7 @@ function SpellEditor({ guard, initial, abilities, onDone }) {
       <h3>{f.id ? 'Правка заклинания' : 'Новое заклинание'}</h3>
       <div className="grid2">
         <label>Название<input value={f.name} onChange={set('name')} /></label>
-        <label>Уровень (0 — заговор)<input type="number" min="0" max="9" value={f.level} onChange={set('level')} /></label>
+        <label>Уровень (0 – заговор)<input type="number" min="0" max="9" value={f.level} onChange={set('level')} /></label>
         <label>Школа<input value={f.school} onChange={set('school')} placeholder="Воплощение" /></label>
         <label>Как считается в бою<select value={f.mode} onChange={set('mode')}>{Object.entries(MODES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
       </div>
@@ -60,7 +60,7 @@ function SpellEditor({ guard, initial, abilities, onDone }) {
   )
 }
 
-// SpellsTab — вкладка «Заклинания» библиотеки.
+// SpellsTab – вкладка «Заклинания» библиотеки.
 export function SpellsTab({ cat, guard }) {
   const rs = cat[0]
   const [f, setF] = useState({ q: '', level: '', cls: '', auto: false })
@@ -75,7 +75,7 @@ export function SpellsTab({ cat, guard }) {
   if (edit) return <SpellEditor guard={guard} initial={edit === 'new' ? null : edit} abilities={rs.abilities} onDone={() => { setEdit(null); load() }} />
   return (
     <div>
-      <p className="hint">В каталоге {rs.spells.length} заклинаний D&D 5e (PHB, SRD, Xanathar, Tasha — по памяти, сверяйте с книгой). Значок ⚡ — урон или лечение считаются автоматически; остальные тратят ячейку, а эффект применяет мастер. Выучить заклинание можно на листе героя.</p>
+      <p className="hint">В каталоге {rs.spells.length} заклинаний D&D 5e (PHB, SRD, Xanathar, Tasha – по памяти, сверяйте с книгой). Значок ⚡ – урон или лечение считаются автоматически; остальные тратят ячейку, а эффект применяет мастер. Выучить заклинание можно на листе героя.</p>
       <SpellFilters f={f} setF={(v) => { setF(v); setLimit(60) }} />
       <small>Найдено: {list.length}</small>
       {list.slice(0, limit).map((s) => (

@@ -1,4 +1,4 @@
-// Package treasure — генератор добычи по мотивам таблиц сокровищ DMG: монеты, драгоценные камни, предметы искусства
+// Package treasure – генератор добычи по мотивам таблиц сокровищ DMG: монеты, драгоценные камни, предметы искусства
 // и магические предметы. Таблицы упрощены и набраны по памяти; мастер всегда может подкрутить результат.
 package treasure
 
@@ -14,7 +14,7 @@ import (
 	"heroesbook/internal/srd"
 )
 
-// Treasure — результат броска: монеты и предметы.
+// Treasure – результат броска: монеты и предметы.
 type Treasure struct {
 	CR    string         `json:"cr"`
 	Hoard bool           `json:"hoard"`
@@ -39,7 +39,7 @@ func roll(r dice.Roller, expr string) int {
 
 func d100(r dice.Roller) int { return 1 + r.Intn(100) }
 
-// Tier по уровню опасности: 0 — CR 0–4, 1 — 5–10, 2 — 11–16, 3 — 17+.
+// Tier по уровню опасности: 0 – CR 0–4, 1 – 5–10, 2 – 11–16, 3 – 17+.
 func Tier(cr string) int {
 	v := 0.0
 	if n, d, ok := strings.Cut(cr, "/"); ok {
@@ -89,7 +89,7 @@ type magic struct {
 
 type hoardRow struct {
 	upTo  int
-	gem   int // цена камня в зм, 0 — нет
+	gem   int // цена камня в зм, 0 – нет
 	art   int
 	n     string // сколько камней или статуэток
 	magic []magic
@@ -219,7 +219,7 @@ func addCoins(t *Treasure, r dice.Roller, cs []coin) {
 	}
 }
 
-// Individual — добыча с одного существа.
+// Individual – добыча с одного существа.
 func Individual(r dice.Roller, cr string) Treasure {
 	t := Treasure{CR: cr, Coins: map[string]int{}}
 	n := d100(r)
@@ -233,7 +233,7 @@ func Individual(r dice.Roller, cr string) Treasure {
 	return t
 }
 
-// Hoard — сокровищница: монеты, камни, предметы искусства, магические предметы.
+// Hoard – сокровищница: монеты, камни, предметы искусства, магические предметы.
 func Hoard(r dice.Roller, cr string) Treasure {
 	tier := Tier(cr)
 	t := Treasure{CR: cr, Hoard: true, Coins: map[string]int{}}

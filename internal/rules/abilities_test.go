@@ -8,7 +8,7 @@ import (
 	"heroesbook/internal/model"
 )
 
-// flat — бросок с постоянным результатом: кубик n граней даёт min(5, n) (d20 → 5, d4 → 4).
+// flat – бросок с постоянным результатом: кубик n граней даёт min(5, n) (d20 → 5, d4 → 4).
 type flat struct{}
 
 func (flat) Intn(n int) int { return min(4, n-1) }
@@ -271,7 +271,7 @@ func TestTurnUndead(t *testing.T) {
 		t.Error("канал исчерпан")
 	}
 	if _, err := d.Special(flat{}, "turn", hero(t, "cleric", "", 2), []*model.Character{gob}); err == nil {
-		t.Error("нет нежити — нет цели")
+		t.Error("нет нежити – нет цели")
 	}
 }
 

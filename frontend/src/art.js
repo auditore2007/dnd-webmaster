@@ -1,5 +1,5 @@
 // Портреты рас и существ. Всё рисуется кодом (SVG): никаких внешних картинок и лицензий.
-// Каждый портрет — 100×100, лицо по центру, фон задаёт настроение. Функции возвращают разметку <svg>.
+// Каждый портрет – 100×100, лицо по центру, фон задаёт настроение. Функции возвращают разметку <svg>.
 
 const E = (x, y, rx, ry, fill, x2 = '') => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${fill}" ${x2}/>`
 const C = (x, y, r, fill, x2 = '') => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" ${x2}/>`
@@ -7,7 +7,7 @@ const P = (d, fill, x2 = '') => `<path d="${d}" fill="${fill}" ${x2}/>`
 const S = (d, stroke, w = 2, x2 = '') => `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${x2}/>`
 const both = (s) => s + `<g transform="translate(100 0) scale(-1 1)">${s}</g>`
 
-// mix смешивает два цвета #rrggbb в пропорции t (0 — первый, 1 — второй).
+// mix смешивает два цвета #rrggbb в пропорции t (0 – первый, 1 – второй).
 function mix(a, b, t) {
   const n = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
   const [x, y] = [n(a), n(b)]

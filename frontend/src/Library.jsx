@@ -6,7 +6,7 @@ import Treasure from './Treasure.jsx'
 
 const TABS = [['monsters', '🐉 Существа'], ['items', '🎒 Предметы'], ['spells', '📖 Заклинания'], ['treasure', '💰 Сокровища']]
 
-// Library — справочники мастера: существа, предметы, заклинания; везде можно создавать своё.
+// Library – справочники мастера: существа, предметы, заклинания; везде можно создавать своё.
 export default function Library({ cat, lib, chars, guard, reload, notify }) {
   const [tab, setTab] = useState('monsters')
   return (

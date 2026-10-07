@@ -63,15 +63,23 @@ func (a *App) snapshotData(sn store.Snapshot) ([]byte, error) {
 	return []byte(s), nil
 }
 
-// dropSnapshots удаляет файлы снимков; ошибки удаления не мешают игре (останется лишний файл).
+// dropSnapshots откладывает удаление файлов снимков до успешного persist: если запись state.json не удастся,
+// он не будет ссылаться на уже удалённые файлы.
 func (a *App) dropSnapshots(list []store.Snapshot) {
-	bs, ok := a.store.(blobStore)
-	if !ok {
-		return
-	}
 	for _, sn := range list {
-		_ = bs.SaveBlob(snapBlob(sn.ID), "")
+		a.drops = append(a.drops, snapBlob(sn.ID))
 	}
+}
+
+// flushDrops удаляет отложенные файлы; ошибка удаления не мешает игре (останется лишний файл).
+func (a *App) flushDrops() {
+	bs, ok := a.store.(blobStore)
+	if ok {
+		for _, name := range a.drops {
+			_ = bs.SaveBlob(name, "")
+		}
+	}
+	a.drops = nil
 }
 
 // migrateSnapshots переносит снимки старого формата (данные внутри state.json) в отдельные файлы.

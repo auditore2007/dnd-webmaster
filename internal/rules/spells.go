@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// SpellDef — заклинание каталога. Mode задаёт автоматизацию: attack (бросок атаки заклинанием), save (спасбросок цели),
-// auto (без броска, магический снаряд), heal (лечение). Пустой Mode — описательное заклинание: тратится ячейка, эффект решает мастер.
+// SpellDef – заклинание каталога. Mode задаёт автоматизацию: attack (бросок атаки заклинанием), save (спасбросок цели),
+// auto (без броска, магический снаряд), heal (лечение). Пустой Mode – описательное заклинание: тратится ячейка, эффект решает мастер.
 type SpellDef struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
@@ -21,12 +21,12 @@ type SpellDef struct {
 	Type    string   `json:"-"`
 	Save    string   `json:"-"`
 	Half    bool     `json:"-"`
-	Up      string   `json:"-"` // доп. кубики за уровень ячейки выше базового; "ray" — доп. луч
+	Up      string   `json:"-"` // доп. кубики за уровень ячейки выше базового; "ray" – доп. луч
 	Scale   bool     `json:"-"` // заговор растёт с 5/11/17 уровня
 	Rays    int      `json:"-"`
 	Beams   bool     `json:"-"`       // число лучей растёт как у заговора
 	Conc    bool     `json:"conc"`    // требует концентрации
-	Tgt     string   `json:"targets"` // ally | foe | self — кого выбирать для эффекта, если он есть
+	Tgt     string   `json:"targets"` // ally | foe | self – кого выбирать для эффекта, если он есть
 }
 
 var (
@@ -117,7 +117,7 @@ func init() {
 	})
 }
 
-// DamageTypeIDs — допустимые типы урона для собственных заклинаний и существ.
+// DamageTypeIDs – допустимые типы урона для собственных заклинаний и существ.
 func DamageTypeIDs() []string {
 	out := make([]string, len(dndDamage))
 	for i, d := range dndDamage {

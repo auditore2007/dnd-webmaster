@@ -9,7 +9,7 @@ import (
 	"heroesbook/internal/model"
 )
 
-// DnD5e — правила D&D 5e (SRD): шесть характеристик, КД, бонус мастерства.
+// DnD5e – правила D&D 5e (SRD): шесть характеристик, КД, бонус мастерства.
 type DnD5e struct{}
 
 type bonus = map[string]int
@@ -39,7 +39,7 @@ func findClass(id string) (Class, bool) {
 	return dndClasses[i], true
 }
 
-// Mod — модификатор характеристики. Сдвиг округляет вниз и для отрицательных (9 → −1), деление в Go — нет.
+// Mod – модификатор характеристики. Сдвиг округляет вниз и для отрицательных (9 → −1), деление в Go – нет.
 func Mod(score int) int { return (score - 10) >> 1 }
 
 func (d DnD5e) Build(c *model.Character) error {
@@ -59,7 +59,7 @@ func (d DnD5e) Build(c *model.Character) error {
 	return nil
 }
 
-// Ячейки заклинаний полного заклинателя по уровням 1–20: цифры — число ячеек 1-го, 2-го… уровня.
+// Ячейки заклинаний полного заклинателя по уровням 1–20: цифры – число ячеек 1-го, 2-го… уровня.
 var fullSlots = []string{"2", "3", "42", "43", "432", "433", "4331", "4332", "43331", "43332", "433321", "433321", "4333211", "4333211", "43332111", "43332111", "433321111", "433331111", "433332111", "433332211"}
 
 // Ячейки «третьего заклинателя» (мистический рыцарь, mistic trickster) по уровням 3–20.
@@ -139,7 +139,7 @@ func hasAny(c *model.Character, conds []string) bool {
 	return slices.ContainsFunc(conds, c.Has)
 }
 
-// condMode: преимущество и помеха из состояний и выбранного режима; если есть и то и другое — они гасят друг друга.
+// condMode: преимущество и помеха из состояний и выбранного режима; если есть и то и другое – они гасят друг друга.
 func condMode(a, t *model.Character, m dice.Mode) dice.Mode { return condModeR(a, t, m, false) }
 
 // condModeR: то же, но для дальних атак: по лежащему цели дальняя атака идёт с помехой, а не с преимуществом.
@@ -157,7 +157,7 @@ func condModeR(a, t *model.Character, m dice.Mode, ranged bool) dice.Mode {
 	return dice.Normal
 }
 
-// AfterDamage: падение на 0 HP запускает спасброски от смерти; урон по лежащему — провал (крит — два). Существа гибнут сразу.
+// AfterDamage: падение на 0 HP запускает спасброски от смерти; урон по лежащему – провал (крит – два). Существа гибнут сразу.
 func (DnD5e) AfterDamage(c *model.Character, wasDown, crit bool) {
 	if c.HP > 0 || c.Dead {
 		return
@@ -195,7 +195,7 @@ func (d DnD5e) DeathSave(r dice.Roller, c *model.Character) (string, error) {
 	switch {
 	case k == 20:
 		c.HP, c.DeathOk, c.DeathFail = 1, 0, 0
-		return out + " — приходит в себя с 1 HP", nil
+		return out + " – приходит в себя с 1 HP", nil
 	case k == 1:
 		c.DeathFail += 2
 	case k >= 10:
@@ -206,10 +206,10 @@ func (d DnD5e) DeathSave(r dice.Roller, c *model.Character) (string, error) {
 	switch {
 	case c.DeathFail >= 3:
 		c.Dead = true
-		out += " — погибает"
+		out += " – погибает"
 	case c.DeathOk >= 3:
 		c.Stable, c.DeathOk, c.DeathFail = true, 0, 0
-		out += " — стабилизируется"
+		out += " – стабилизируется"
 	default:
 		out += fmt.Sprintf(" (успехов %d, провалов %d)", c.DeathOk, c.DeathFail)
 	}
@@ -239,12 +239,12 @@ func (d DnD5e) TurnStart(r dice.Roller, c *model.Character) ([]string, bool) {
 func (DnD5e) Survives(c *model.Character) (string, bool, bool) {
 	if c.Race == "halforc" && c.Stat == nil && !c.Used["relentless"] {
 		c.Mark("relentless")
-		return c.Name + ": непоколебимая стойкость — остаётся с 1 HP", false, true
+		return c.Name + ": непоколебимая стойкость – остаётся с 1 HP", false, true
 	}
 	return "", false, false
 }
 
-// Special: дыхание дракорождённого — 2d6 (3d6/4d6/5d6 с 6/11/16 уровня), СЛ = 8 + Телосложение + мастерство.
+// Special: дыхание дракорождённого – 2d6 (3d6/4d6/5d6 с 6/11/16 уровня), СЛ = 8 + Телосложение + мастерство.
 func (d DnD5e) Special(r dice.Roller, key string, src *model.Character, foes []*model.Character) ([]string, error) {
 	if src.Stat != nil {
 		return d.monsterSpecial(r, key, src, foes)
@@ -256,7 +256,7 @@ func (d DnD5e) Special(r dice.Roller, key string, src *model.Character, foes []*
 		return nil, fmt.Errorf("у героя нет такой способности")
 	}
 	if src.Used["breath"] {
-		return nil, fmt.Errorf("дыхание уже использовано — нужен отдых")
+		return nil, fmt.Errorf("дыхание уже использовано – нужен отдых")
 	}
 	ds := d.Derive(src)
 	dc, n := 8+ds.Mods["con"]+ds.Prof, 2+b2i(src.Level >= 6)+b2i(src.Level >= 11)+b2i(src.Level >= 16)

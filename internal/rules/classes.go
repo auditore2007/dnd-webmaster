@@ -55,15 +55,6 @@ var dndClasses = []Class{
 		Subs: []Subclass{{ID: "ghostslayer", Name: "Орден призраков", Feats: []Feat{f(3, "Кровавая охота на призраков", "Удары по нежити и духам: сопротивление и урон силой."), f(3, "Кровавое проклятие: Тайн", "Помеченный не может скрыться в иных планах."), f(7, "Кровавая ярость", "Раз за отдых: короткий бросок пленяет призрака."), f(11, "Чёрная метка", "Бонус урона по помеченному.")}}}},
 }
 
-func subOf(c Class, id string) *Subclass {
-	for i := range c.Subs {
-		if c.Subs[i].ID == id {
-			return &c.Subs[i]
-		}
-	}
-	return nil
-}
-
 var dndSkills = []Skill{{"acrobatics", "Акробатика", "dex"}, {"animal", "Уход за животными", "wis"}, {"arcana", "Магия", "int"}, {"athletics", "Атлетика", "str"}, {"deception", "Обман", "cha"}, {"history", "История", "int"}, {"insight", "Проницательность", "wis"}, {"intimidation", "Запугивание", "cha"}, {"investigation", "Анализ", "int"}, {"medicine", "Медицина", "wis"}, {"nature", "Природа", "int"}, {"perception", "Внимательность", "wis"}, {"performance", "Выступление", "cha"}, {"persuasion", "Убеждение", "cha"}, {"religion", "Религия", "int"}, {"sleight", "Ловкость рук", "dex"}, {"stealth", "Скрытность", "dex"}, {"survival", "Выживание", "wis"}}
 
 // Характеристика колдовства по классу.

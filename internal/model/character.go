@@ -1,7 +1,10 @@
 // Package model — сущности, не зависящие от конкретной системы правил.
 package model
 
-import "slices"
+import (
+	"maps"
+	"slices"
+)
 
 type Weapon struct {
 	Name    string `json:"name"`
@@ -227,6 +230,42 @@ type AttackResult struct {
 	Target     int    `json:"target"`
 	Damage     int    `json:"damage"`
 	DamageText string `json:"damageText"`
+}
+
+// Clone — глубокая копия: ответы интерфейсу сериализуются без мьютекса и не должны делить с состоянием срезы и карты.
+func (c *Character) Clone() Character {
+	out := *c
+	out.Abilities = maps.Clone(c.Abilities)
+	out.Active = maps.Clone(c.Active)
+	out.Used = maps.Clone(c.Used)
+	out.Counters = maps.Clone(c.Counters)
+	out.Purse = maps.Clone(c.Purse)
+	out.Conditions = slices.Clone(c.Conditions)
+	out.Weapons = slices.Clone(c.Weapons)
+	out.Skills = slices.Clone(c.Skills)
+	out.Expert = slices.Clone(c.Expert)
+	out.Effects = slices.Clone(c.Effects)
+	out.Inventory = slices.Clone(c.Inventory)
+	for i, it := range out.Inventory {
+		if it.Weapon != nil {
+			w := *it.Weapon
+			out.Inventory[i].Weapon = &w
+		}
+	}
+	out.Spells = slices.Clone(c.Spells)
+	for i, s := range out.Spells {
+		if s.Auto != nil {
+			au := *s.Auto
+			out.Spells[i].Auto = &au
+		}
+	}
+	if c.Stat != nil {
+		st := *c.Stat
+		st.Traits, st.Multi, st.Specials = slices.Clone(st.Traits), slices.Clone(st.Multi), slices.Clone(st.Specials)
+		st.Resist, st.Vuln, st.Immune = slices.Clone(st.Resist), slices.Clone(st.Vuln), slices.Clone(st.Immune)
+		out.Stat = &st
+	}
+	return out
 }
 
 func (c *Character) Down() bool     { return c.HP <= 0 }

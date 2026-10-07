@@ -36,6 +36,8 @@ type App struct {
 	rng   dice.Roller
 	warn  string
 	hist  [][]byte
+	saved []byte // состояние на момент последнего persist (JSON)
+	dirty bool   // состояние менялось после persist (например, бросок дописал журнал)
 }
 
 func NewApp() *App {
@@ -55,6 +57,7 @@ func (a *App) startup(_ context.Context) {
 		a.warn = err.Error()
 	}
 	a.migrate()
+	a.migrateSnapshots()
 	if a.state.SeedVer < seedVersion { // каталог предметов добавляется при первом запуске и при расширении каталога
 		a.addSRD()
 		a.state.SeedVer = seedVersion
@@ -160,21 +163,42 @@ func (a *App) find(id string) *model.Character {
 func (a *App) view(c *model.Character) CharView {
 	rs, err := rules.Get(c.Ruleset)
 	if err != nil {
-		return CharView{Character: *c}
+		return CharView{Character: c.Clone()}
 	}
-	return CharView{Character: *c, Derived: rs.Derive(c)}
+	return CharView{Character: c.Clone(), Derived: rs.Derive(c)}
 }
 
-func (a *App) persist() error { return a.store.Save(a.state) }
+// rawSaver — хранилище, которое принимает уже сериализованное состояние, чтобы не делать Marshal дважды.
+type rawSaver interface{ SaveRaw([]byte) error }
 
+const maxUndo = 50
+
+// persist сериализует состояние один раз: эти же байты станут следующей точкой отмены (см. checkpoint).
+func (a *App) persist() error {
+	b, err := json.Marshal(a.state)
+	if err != nil {
+		return err
+	}
+	a.saved, a.dirty = b, false
+	if rs, ok := a.store.(rawSaver); ok {
+		return rs.SaveRaw(b)
+	}
+	return a.store.Save(a.state)
+}
+
+// checkpoint откладывает копию состояния для Undo. Если с последнего persist состояние не менялось,
+// берутся уже готовые байты — повторной сериализации всей игры на каждый клик нет.
 func (a *App) checkpoint() {
-	s := a.state
-	s.Snapshots = nil
-	if b, err := json.Marshal(s); err == nil {
-		a.hist = append(a.hist, b)
-		if len(a.hist) > 50 {
-			a.hist = a.hist[1:]
+	b := a.saved
+	if b == nil || a.dirty {
+		var err error
+		if b, err = json.Marshal(a.state); err != nil {
+			return
 		}
+	}
+	a.hist = append(a.hist, b)
+	if len(a.hist) > maxUndo {
+		a.hist = slices.Delete(a.hist, 0, len(a.hist)-maxUndo)
 	}
 }
 
@@ -185,6 +209,7 @@ func (a *App) rollback() {
 }
 
 func (a *App) note(f string, v ...any) {
+	a.dirty = true
 	a.state.Log = append(a.state.Log, time.Now().Format("15:04")+"  "+fmt.Sprintf(f, v...))
 	if len(a.state.Log) > 1000 {
 		a.state.Log = a.state.Log[len(a.state.Log)-1000:]
@@ -775,15 +800,20 @@ func (a *App) Check(id, ability, kind, mode string, dc int) (RollView, error) {
 		return RollView{}, err
 	}
 	d := rs.Derive(c)
+	cat := rs.Catalog()
 	bonus, ok := d.Mods[ability]
-	label := c.Name + ": " + ability
+	abName := ability
+	if i := slices.IndexFunc(cat.Abilities, func(x rules.Ability) bool { return x.ID == ability }); i >= 0 {
+		abName = cat.Abilities[i].Name
+	}
+	label := c.Name + ": " + abName
 	if kind == "skill" {
 		sk, has := d.Skills[ability]
 		if !has {
 			return RollView{}, fmt.Errorf("неизвестный навык: %q", ability)
 		}
 		bonus, ok = sk, true
-		for _, def := range rs.Catalog().Skills {
+		for _, def := range cat.Skills {
 			if def.ID == ability {
 				label = c.Name + ": " + def.Name
 			}
@@ -793,7 +823,7 @@ func (a *App) Check(id, ability, kind, mode string, dc int) (RollView, error) {
 		return RollView{}, fmt.Errorf("неизвестная характеристика: %q", ability)
 	}
 	if s, has := d.Saves[ability]; kind == "save" && has {
-		bonus, label = s, c.Name+": спасбросок "+ability
+		bonus, label = s, c.Name+": спасбросок — "+abName
 	}
 	k, rolls := dice.D20(a.rng, dice.ParseMode(mode))
 	v := RollView{Label: label, Rolls: rolls, Kept: k, Bonus: bonus, Total: k + bonus, DC: dc, Sides: 20, Kind: kind}
@@ -810,7 +840,7 @@ func (a *App) Check(id, ability, kind, mode string, dc int) (RollView, error) {
 func (a *App) Encounter() *combat.Encounter {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.state.Encounter
+	return a.state.Encounter.Clone()
 }
 
 // logNew переносит новые строки боя в журнал сессии.
@@ -842,7 +872,7 @@ func (a *App) StartEncounter(ids []string) (*combat.Encounter, error) {
 	a.checkpoint()
 	a.state.Encounter = e
 	a.logNew(e, 0)
-	return e, a.persist()
+	return e.Clone(), a.persist()
 }
 
 // Attack: weapon — индекс в списке оружия атакующего (derived.weapons), -1 означает безоружный удар.
@@ -876,7 +906,7 @@ func (a *App) Attack(targetID string, weapon int, mode string) (EncounterView, e
 		return EncounterView{}, err
 	}
 	a.logNew(e, before)
-	return EncounterView{e, &res}, a.persist()
+	return EncounterView{e.Clone(), &res}, a.persist()
 }
 
 type MultiView struct {
@@ -929,7 +959,7 @@ func (a *App) AttackAll(targetID string, weapon int, mode string) (MultiView, er
 	}
 	a.checkpoint()
 	before := e.Seq
-	out := MultiView{Encounter: e}
+	var out MultiView
 	md := dice.ParseMode(mode)
 	for _, w := range plan {
 		if e.Acted {
@@ -949,6 +979,7 @@ func (a *App) AttackAll(targetID string, weapon int, mode string) (MultiView, er
 		}
 	}
 	a.logNew(e, before)
+	out.Encounter = e.Clone()
 	return out, a.persist()
 }
 
@@ -967,7 +998,7 @@ func (a *App) CastSpell(spell, slot int, targetIDs []string, mode string) (*comb
 		return nil, err
 	}
 	a.logNew(e, before)
-	return e, a.persist()
+	return e.Clone(), a.persist()
 }
 
 // UseSpecial — особая способность текущего участника (например, дыхание дракона).
@@ -985,7 +1016,7 @@ func (a *App) UseSpecial(key string) (*combat.Encounter, error) {
 		return nil, err
 	}
 	a.logNew(e, before)
-	return e, a.persist()
+	return e.Clone(), a.persist()
 }
 
 func (a *App) NextTurn() (*combat.Encounter, error) {
@@ -999,7 +1030,7 @@ func (a *App) NextTurn() (*combat.Encounter, error) {
 	before := e.Seq
 	e.Next(a.rng, a.find)
 	a.logNew(e, before)
-	return e, a.persist()
+	return e.Clone(), a.persist()
 }
 
 // ---------- журнал, отмена, карта, снимки ----------
@@ -1065,19 +1096,8 @@ func (a *App) Snapshots() []SnapshotInfo {
 func (a *App) SaveSnapshot(name string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	s := a.state
-	s.Snapshots = nil
-	b, err := json.Marshal(s)
-	if err != nil {
+	if _, err := a.saveSnapshot(name); err != nil {
 		return err
-	}
-	now := time.Now().Format("02.01.2006 15:04")
-	if name = strings.TrimSpace(name); name == "" {
-		name = "Сохранение " + now
-	}
-	a.state.Snapshots = append(a.state.Snapshots, store.Snapshot{ID: newID(), Name: name, Time: now, Data: b})
-	if n := len(a.state.Snapshots); n > 20 {
-		a.state.Snapshots = a.state.Snapshots[n-20:]
 	}
 	return a.persist()
 }
@@ -1086,31 +1106,32 @@ func (a *App) SaveSnapshot(name string) error {
 func (a *App) LoadSnapshot(id string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	for _, sn := range a.state.Snapshots {
-		if sn.ID != id {
-			continue
-		}
-		var s store.State
-		if err := json.Unmarshal(sn.Data, &s); err != nil {
-			return err
-		}
-		a.checkpoint()
-		s.Snapshots = a.state.Snapshots
-		a.state = s
-		return a.persist()
+	i := slices.IndexFunc(a.state.Snapshots, func(s store.Snapshot) bool { return s.ID == id })
+	if i < 0 {
+		return errors.New("сохранение не найдено")
 	}
-	return errors.New("сохранение не найдено")
+	data, err := a.snapshotData(a.state.Snapshots[i])
+	if err != nil {
+		return err
+	}
+	var s store.State
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("сохранение повреждено: %w", err)
+	}
+	a.checkpoint()
+	s.Snapshots = a.state.Snapshots
+	a.state = s
+	return a.persist()
 }
 
 func (a *App) DeleteSnapshot(id string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	sn := a.state.Snapshots
-	for i := range sn {
-		if sn[i].ID == id {
-			a.state.Snapshots = append(sn[:i:i], sn[i+1:]...)
-			return a.persist()
-		}
+	i := slices.IndexFunc(a.state.Snapshots, func(s store.Snapshot) bool { return s.ID == id })
+	if i < 0 {
+		return errors.New("сохранение не найдено")
 	}
-	return errors.New("сохранение не найдено")
+	a.dropSnapshots(a.state.Snapshots[i : i+1])
+	a.state.Snapshots = slices.Delete(a.state.Snapshots, i, i+1)
+	return a.persist()
 }

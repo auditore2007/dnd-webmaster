@@ -51,7 +51,7 @@ func (a *App) AddToEncounter(ids []string) (*combat.Encounter, error) {
 		return nil, err
 	}
 	a.logNew(e, before)
-	return e, a.persist()
+	return e.Clone(), a.persist()
 }
 
 // SpawnInBattle создаёт count существ и сразу вводит их в бой.
@@ -74,7 +74,7 @@ func (a *App) SpawnInBattle(monsterID string, count int) (*combat.Encounter, err
 		a.restore() // spawn мог уже добавить существ — возвращаем состояние из истории
 		return nil, err
 	}
-	return e, a.persist()
+	return e.Clone(), a.persist()
 }
 
 // RemoveFromEncounter выводит участника из боя (убежал, убран мастером), не удаляя его из игры.
@@ -90,7 +90,7 @@ func (a *App) RemoveFromEncounter(id string) (*combat.Encounter, error) {
 	}
 	a.checkpoint()
 	a.leaveEncounter(id)
-	return a.state.Encounter, a.persist()
+	return a.state.Encounter.Clone(), a.persist()
 }
 
 // EndEncounter заканчивает бой. Погибшие существа убираются всегда; clearMonsters убирает и уцелевших.

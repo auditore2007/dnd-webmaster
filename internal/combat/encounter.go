@@ -4,6 +4,7 @@ package combat
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -62,6 +63,19 @@ func Start(r dice.Roller, ids []string, get Lookup) (*Encounter, error) {
 	e.logf("Бой начался. Инициатива: %s", strings.Join(names, ", "))
 	e.seek(r, get)
 	return e, nil
+}
+
+// Clone — независимая копия боя для ответа интерфейсу (nil остаётся nil).
+func (e *Encounter) Clone() *Encounter {
+	if e == nil {
+		return nil
+	}
+	out := *e
+	out.Order = slices.Clone(e.Order)
+	out.Init = maps.Clone(e.Init)
+	out.Log = slices.Clone(e.Log)
+	out.React = maps.Clone(e.React)
+	return &out
 }
 
 func (e *Encounter) logf(f string, a ...any) {

@@ -3,6 +3,7 @@ package rules
 import (
 	"fmt"
 	"slices"
+	"sync"
 
 	"heroesbook/internal/dice"
 	"heroesbook/internal/model"
@@ -23,9 +24,12 @@ var dndDamage = []Ability{{"slashing", "Рубящий"}, {"piercing", "Колю
 
 func (DnD5e) ID() string { return "dnd5e" }
 
-func (DnD5e) Catalog() Catalog {
+// Catalog собирается один раз: его вызывают почти в каждом действии, а данные неизменны. Вызывающие только читают его.
+func (DnD5e) Catalog() Catalog { return dndCatalog() }
+
+var dndCatalog = sync.OnceValue(func() Catalog {
 	return Catalog{ID: "dnd5e", Name: "D&D 5e (SRD)", ACLabel: "КД", DeathSaves: true, Abilities: dndAbilities, Races: withText(dndRaces), Classes: withClassText(dndClasses), Conditions: dndConditions, DamageTypes: dndDamage, Rests: dndRests, Skills: dndSkills, Spells: spellDefs}
-}
+})
 
 func findClass(id string) (Class, bool) {
 	i := slices.IndexFunc(dndClasses, func(c Class) bool { return c.ID == id })

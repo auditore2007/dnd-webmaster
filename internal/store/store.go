@@ -29,12 +29,13 @@ type MapMeta struct {
 	Feet int    `json:"feet"` // сколько футов в клетке
 }
 
-// Snapshot — именованная копия игры; Data хранит состояние без самих снимков.
+// Snapshot — именованная копия игры. Данные лежат в отдельном файле snap-<id>;
+// Data заполнен только у снимков старого формата (до переноса) и в хранилищах без файлов.
 type Snapshot struct {
 	ID   string          `json:"id"`
 	Name string          `json:"name"`
 	Time string          `json:"time"`
-	Data json.RawMessage `json:"data"`
+	Data json.RawMessage `json:"data,omitempty"`
 }
 
 type State struct {
@@ -84,12 +85,18 @@ func (f *FileStore) Load() (State, error) {
 }
 
 // Save пишет во временный файл и переименовывает его: при сбое старое сохранение остаётся целым.
+// JSON пишется без отступов: файл меньше и пишется быстрее, а сохранение идёт после каждого действия.
 func (f *FileStore) Save(s State) error {
-	if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
+	b, err := json.Marshal(s)
+	if err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(s, "", "  ")
-	if err != nil {
+	return f.SaveRaw(b)
+}
+
+// SaveRaw записывает уже сериализованное состояние (приложение и так держит эти байты для отмены).
+func (f *FileStore) SaveRaw(b []byte) error {
+	if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
 		return err
 	}
 	tmp := f.Path + ".tmp"

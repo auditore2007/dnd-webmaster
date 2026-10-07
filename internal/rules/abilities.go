@@ -321,7 +321,8 @@ func num2(base string, add func(x ctx) int) val {
 	return func(x ctx) string { return fmt.Sprintf("%s+%d", base, add(x)) }
 }
 
-var abIndex = func() map[string]ab {
+// Проверка при запуске: ключ способности уникален в пределах класса.
+var _ = func() map[string]ab {
 	m := map[string]ab{}
 	for _, a := range abTable {
 		if _, dup := m[a.Class+"/"+a.Key]; dup {

@@ -31,7 +31,7 @@ func (a *App) UseSpecialAt(key, targetID string) (*combat.Encounter, error) {
 		return nil, err
 	}
 	a.logNew(e, before)
-	return e, a.persist()
+	return e.Clone(), a.persist()
 }
 
 // ToggleReaction отмечает реакцию участника потраченной или возвращает её.
@@ -45,7 +45,7 @@ func (a *App) ToggleReaction(id string) (*combat.Encounter, error) {
 	if err := e.Reaction(id); err != nil {
 		return nil, err
 	}
-	return e, a.persist()
+	return e.Clone(), a.persist()
 }
 
 // DropConcentration — мастер обрывает концентрацию заклинателя вручную.
@@ -72,7 +72,7 @@ func (a *App) DropConcentration(id string) (*combat.Encounter, error) {
 		}
 		c.Conc = ""
 	}
-	return a.state.Encounter, a.persist()
+	return a.state.Encounter.Clone(), a.persist()
 }
 
 // AddEffect — мастер вешает на существо свой эффект (горение, проклятие, чужое заклинание) с длительностью в ходах.
@@ -280,27 +280,32 @@ func b2i(b bool) int {
 
 // ---------- сохранение ----------
 
-const quickPrefix = "⚡ "
+const (
+	quickPrefix   = "⚡ "
+	maxQuickSaves = 5
+)
 
 // QuickSave — быстрое сохранение одной кнопкой (Ctrl+S). Хранится пять последних.
 func (a *App) QuickSave() (SnapshotInfo, error) {
-	name := quickPrefix + time.Now().Format("02.01 15:04:05")
-	if err := a.SaveSnapshot(name); err != nil {
-		return SnapshotInfo{}, err
-	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	var quick []string
-	for _, s := range a.state.Snapshots {
-		if strings.HasPrefix(s.Name, quickPrefix) {
-			quick = append(quick, s.ID)
+	s, err := a.saveSnapshot(quickPrefix + time.Now().Format("02.01 15:04:05"))
+	if err != nil {
+		return SnapshotInfo{}, err
+	}
+	var quick []store.Snapshot
+	for _, x := range a.state.Snapshots {
+		if strings.HasPrefix(x.Name, quickPrefix) {
+			quick = append(quick, x)
 		}
 	}
-	if len(quick) > 5 {
-		old := quick[:len(quick)-5]
-		a.state.Snapshots = slices.DeleteFunc(a.state.Snapshots, func(s store.Snapshot) bool { return slices.Contains(old, s.ID) })
+	if len(quick) > maxQuickSaves {
+		old := quick[:len(quick)-maxQuickSaves]
+		a.dropSnapshots(old)
+		a.state.Snapshots = slices.DeleteFunc(a.state.Snapshots, func(x store.Snapshot) bool {
+			return slices.ContainsFunc(old, func(o store.Snapshot) bool { return o.ID == x.ID })
+		})
 	}
-	s := a.state.Snapshots[len(a.state.Snapshots)-1]
 	return SnapshotInfo{s.ID, s.Name, s.Time}, a.persist()
 }
 

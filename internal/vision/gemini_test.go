@@ -81,3 +81,29 @@ func TestLocateErrorsAreReadable(t *testing.T) {
 		t.Error("без ключа – ошибка")
 	}
 }
+
+// Перегруженная модель (503): повтор, затем резервная модель.
+func TestLocateRetriesAndFallsBackWhenBusy(t *testing.T) {
+	var models []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		models = append(models, r.URL.Path)
+		if strings.Contains(r.URL.Path, "busy-model") {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":{"message":"This model is currently experiencing high demand."}}`))
+			return
+		}
+		_, _ = w.Write([]byte(answer(`[{"kind":"city","name":"Град","box_2d":[0,0,100,100]}]`)))
+	}))
+	defer srv.Close()
+	c := Client{Key: "k", Model: "busy-model", BaseURL: srv.URL, HTTP: srv.Client(), retryWait: 1}
+	got, err := c.Locate(context.Background(), "image/png", []byte{1}, 100, 100)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("резервная модель должна ответить: %v %v", got, err)
+	}
+	if busy := strings.Count(strings.Join(models, " "), "busy-model"); busy != busyRetries+1 {
+		t.Errorf("попыток к занятой модели %d, ожидалось %d", busy, busyRetries+1)
+	}
+	if !strings.Contains(models[len(models)-1], FallbackModel) {
+		t.Errorf("последний запрос – к резервной модели, а был %s", models[len(models)-1])
+	}
+}

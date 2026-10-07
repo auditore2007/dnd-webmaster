@@ -14,12 +14,15 @@ import (
 )
 
 const (
-	DefaultModel = "gemini-3.8-flash"
-	defaultBase  = "https://generativelanguage.googleapis.com/v1beta"
-	maxFound     = 60
-	boxScale     = 1000 // Gemini возвращает рамки в долях от 0 до 1000
-	timeout      = 2 * time.Minute
-	maxBody      = 8 << 20
+	DefaultModel  = "gemini-3.8-flash"
+	FallbackModel = "gemini-flash-latest" // если основная модель перегружена
+	busyRetries   = 2                     // повторов при «модель перегружена» (503) перед переходом на резервную
+	busyWait      = 3 * time.Second
+	defaultBase   = "https://generativelanguage.googleapis.com/v1beta"
+	maxFound      = 60
+	boxScale      = 1000 // Gemini возвращает рамки в долях от 0 до 1000
+	timeout       = 2 * time.Minute
+	maxBody       = 8 << 20
 )
 
 // Found – место, найденное на картинке. X, Y – центр рамки в пикселях картинки.
@@ -32,6 +35,7 @@ type Found struct {
 type Client struct {
 	Key, Model, BaseURL string
 	HTTP                *http.Client
+	retryWait           time.Duration // пауза между повторами (в тестах – короткая)
 }
 
 // Kinds – виды мест, которые модель может вернуть (совпадают с model.PlaceKinds без «room»).
@@ -61,18 +65,55 @@ func (c Client) Locate(ctx context.Context, mime string, data []byte, w, h int) 
 	if err != nil {
 		return nil, err
 	}
-	base, model := c.BaseURL, c.Model
-	if base == "" {
-		base = defaultBase
-	}
+	model := c.Model
 	if model == "" {
 		model = DefaultModel
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	models := []string{model}
+	if model != FallbackModel {
+		models = append(models, FallbackModel)
+	}
+	wait := c.retryWait
+	if wait == 0 {
+		wait = busyWait
+	}
+	var lastErr error
+	for _, m := range models {
+		for try := 0; try <= busyRetries; try++ {
+			raw, status, err := c.post(ctx, m, body)
+			switch {
+			case err != nil:
+				return nil, err
+			case status == http.StatusOK:
+				return parse(raw, w, h)
+			case status != http.StatusServiceUnavailable:
+				return nil, apiError(status, raw)
+			}
+			lastErr = apiError(status, raw)
+			if m == FallbackModel || try == busyRetries {
+				break // резервную модель не мучаем повторами; основную – после busyRetries
+			}
+			select {
+			case <-ctx.Done():
+				return nil, lastErr
+			case <-time.After(wait):
+			}
+		}
+	}
+	return nil, lastErr
+}
+
+// post отправляет запрос к модели и возвращает тело ответа и код.
+func (c Client) post(ctx context.Context, model string, body []byte) ([]byte, int, error) {
+	base := c.BaseURL
+	if base == "" {
+		base = defaultBase
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/models/"+model+":generateContent", bytes.NewReader(body))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-goog-api-key", c.Key)
@@ -82,17 +123,11 @@ func (c Client) Locate(ctx context.Context, mime string, data []byte, w, h int) 
 	}
 	resp, err := hc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("нет связи с Gemini API: %w", err)
+		return nil, 0, fmt.Errorf("нет связи с Gemini API: %w", err)
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, apiError(resp.StatusCode, raw)
-	}
-	return parse(raw, w, h)
+	return raw, resp.StatusCode, err
 }
 
 func (c Client) request(mime string, data []byte) map[string]any {
@@ -127,6 +162,8 @@ func apiError(status int, raw []byte) error {
 		msg = strings.TrimSpace(string(raw))
 	}
 	switch {
+	case status == http.StatusServiceUnavailable:
+		return fmt.Errorf("Gemini сейчас перегружен, попробуйте через минуту (%s)", msg)
 	case status == http.StatusTooManyRequests:
 		return fmt.Errorf("Gemini: превышен лимит бесплатного тарифа, попробуйте позже (%s)", msg)
 	case strings.Contains(msg, "location is not supported"):

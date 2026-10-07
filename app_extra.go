@@ -297,12 +297,13 @@ const maxMapChars = 14 << 20
 
 // MapInfo – карта без картинки (картинка запрашивается отдельно).
 type MapInfo struct {
-	ID     string      `json:"id"`
-	Name   string      `json:"name"`
-	Pins   []store.Pin `json:"pins"`
-	Grid   int         `json:"grid"`
-	Feet   int         `json:"feet"`
-	HasFog bool        `json:"hasFog"`
+	ID     string        `json:"id"`
+	Name   string        `json:"name"`
+	Pins   []store.Pin   `json:"pins"`
+	Grid   int           `json:"grid"`
+	Feet   int           `json:"feet"`
+	HasFog bool          `json:"hasFog"`
+	Places []model.Place `json:"places"`
 }
 
 func (a *App) mapInfo(m store.MapMeta) MapInfo {
@@ -312,7 +313,7 @@ func (a *App) mapInfo(m store.MapMeta) MapInfo {
 			has = true
 		}
 	}
-	return MapInfo{m.ID, m.Name, append([]store.Pin{}, m.Pins...), m.Grid, max(5, m.Feet), has}
+	return MapInfo{m.ID, m.Name, append([]store.Pin{}, m.Pins...), m.Grid, max(5, m.Feet), has, append([]model.Place{}, model.ClonePlaces(m.Places)...)}
 }
 
 func (a *App) Maps() []MapInfo {

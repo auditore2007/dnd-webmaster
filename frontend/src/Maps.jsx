@@ -2,9 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import { pickMap } from './Portrait.jsx'
 import { Icon } from './Icon.jsx'
+import { MapTools } from './MapTools.jsx'
+import { PlaceCard, PlaceMarker, PlaceTool } from './Places.jsx'
+
+// partyLevel – средний уровень живых героев (для силы врагов и наград на картах).
+const partyLevel = (chars) => {
+  const hs = (chars ?? []).filter((c) => c.kind !== 'monster' && !c.dead)
+  return hs.length ? Math.max(1, Math.round(hs.reduce((s, c) => s + c.level, 0) / hs.length)) : 1
+}
 
 // MapsView – галерея карт мастера: добавляй сколько угодно своих карт, у каждой свои метки.
-export default function MapsView({ guard, rev = 0 }) {
+export default function MapsView({ guard, rev = 0, chars = [], cat = [], reload, notify }) {
+  const [panel, setPanel] = useState('')
+  const [level, setLevel] = useState(() => partyLevel(chars))
   const [maps, setMaps] = useState(null)
   const [cur, setCur] = useState('')
   const [img, setImg] = useState('')
@@ -20,6 +30,8 @@ export default function MapsView({ guard, rev = 0 }) {
     const m = await api.AddMap(name.trim() || file.name.replace(/\.[^.]+$/, '') || 'Карта', data)
     setName(''); await load(m.id)
   })
+  const onMap = (m) => setMaps((ms) => ms.map((x) => (x.id === m.id ? m : x)))
+  const created = (m) => { notify?.(`Карта «${m.name}» готова: мест ${m.places?.length ?? 0}`); load(m.id) }
   if (!maps) return <section><h2>Карты</h2></section>
   return (
     <section className="map">
@@ -35,16 +47,31 @@ export default function MapsView({ guard, rev = 0 }) {
         {map && renaming && <button className="ghost" onClick={() => guard(async () => { await api.RenameMap(map.id, name); setRenaming(false); setName(''); await load(map.id) })}>Сохранить название</button>}
         {map && <button className="ghost danger" onClick={() => (armed ? guard(async () => { await api.DeleteMap(map.id); setArmed(false); await load('') }) : setArmed(true))} onBlur={() => setArmed(false)}>{armed ? 'Точно удалить?' : 'Удалить карту'}</button>}
       </div>
+      <div className="row tight mapgen">
+        {[['world', '🌍 Создать мир'], ['dungeon', '🏰 Создать подземелье'], ['import', '📥 Импорт Azgaar / One Page Dungeon'], ['ai', '🤖 Настройки ИИ']].map(([k, v]) =>
+          <button key={k} className="ghost" aria-pressed={panel === k} onClick={() => setPanel(panel === k ? '' : k)}>{v}</button>)}
+      </div>
+      <MapTools cat={cat} level={level} setLevel={setLevel} guard={guard} onDone={created} panel={panel} setPanel={setPanel} />
       {maps.length === 0
-        ? <p className="empty">Карт пока нет. Нажмите «Добавить карту» и выберите картинку (мир, город, подземелье) – можно загрузить несколько и переключаться между ними.</p>
-        : map && img ? <Viewer key={map.id + ':' + rev} map={map} img={img} guard={guard} reload={() => load(map.id)} /> : <p className="hint">Загрузка карты…</p>}
+        ? <p className="empty">Карт пока нет. Создайте мир или подземелье прямо здесь, импортируйте карту из Azgaar или One Page Dungeon – или загрузите свою картинку и разметьте её (вручную или нейросетью).</p>
+        : map && img ? <Viewer key={map.id + ':' + rev} map={map} img={img} guard={guard} reload={() => load(map.id)}
+          onMap={onMap} cat={cat} level={level} reloadChars={reload} notify={notify} /> : <p className="hint">Загрузка карты…</p>}
     </section>
   )
 }
 
 const FOGMAX = 1024
 
-function Viewer({ map, img, guard, reload }) {
+function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notify }) {
+  const [sel, setSel] = useState('')
+  const [placeKind, setPlaceKind] = useState('tavern')
+  const [placeName, setPlaceName] = useState('')
+  const [showPlaces, setShowPlaces] = useState(true)
+  const [labels, setLabels] = useState(() => (map.places?.length ?? 0) <= 40) // на густой карте подписи мешают
+  const [busy, setBusy] = useState('')
+  const places = map.places ?? []
+  const selected = places.find((p) => p.id === sel)
+  const work = (label, f) => guard(async () => { setBusy(label); try { onMap(await f()) } finally { setBusy('') } })
   const box = useRef(null)
   const im = useRef(null)
   const fogc = useRef(null)
@@ -149,8 +176,19 @@ function Viewer({ map, img, guard, reload }) {
       drag.current.last = d
     }
   }
+  // select: выбрать место; pan – прокрутить карту к нему (переход из задания)
+  const select = (id, pan) => {
+    setSel(id)
+    const p = places.find((x) => x.id === id)
+    // справа открыта карточка места – цель ставим в центр видимой левой части
+    if (pan && p && box.current) setV((s) => ({ ...s, x: box.current.clientWidth * 0.32 - p.x * s.k, y: box.current.clientHeight / 2 - p.y * s.k }))
+  }
   const up = (e) => {
     const s = drag.current.start
+    if (tool === 'place' && pts.current.size === 1 && s && Math.hypot(e.clientX - s[0], e.clientY - s[1]) < 5) {
+      const [x, y] = toImg(e)
+      guard(async () => { const m = await api.AddPlace(map.id, x, y, placeKind, placeName.trim()); onMap(m); setPlaceName(''); setSel(m.places.at(-1)?.id ?? '') })
+    }
     if (tool === 'pin' && pts.current.size === 1 && s && Math.hypot(e.clientX - s[0], e.clientY - s[1]) < 5) {
       const [x, y] = toImg(e)
       guard(async () => { await api.AddPin(map.id, x, y, text.trim() || 'Метка'); await reload() })
@@ -158,19 +196,29 @@ function Viewer({ map, img, guard, reload }) {
     if (drag.current.paint && dirty.current) saveFog()
     pts.current.delete(e.pointerId); drag.current.last = 0; drag.current.paint = false
   }
-  const cursor = tool === 'pan' ? 'grab' : tool === 'pin' || tool === 'ruler' ? 'crosshair' : 'cell'
+  const cursor = tool === 'pan' ? 'grab' : tool === 'pin' || tool === 'ruler' || tool === 'place' ? 'crosshair' : 'cell'
   const T = (k, ic, label) => <button className="ghost" aria-pressed={tool === k} onClick={() => setTool(k)} title={label}><Icon n={ic} /> {label}</button>
   const fogged = fog && fogSize
   return (
     <>
       <div className="row tight tools">
-        {T('pan', 'map', 'Двигать')}{T('pin', 'pin', 'Метки')}{T('ruler', 'ruler', 'Линейка')}
+        {T('pan', 'map', 'Двигать')}{T('place', 'pin', 'Места')}{T('pin', 'pin', 'Метки')}{T('ruler', 'ruler', 'Линейка')}
         {fog && <>{T('reveal', 'fog', 'Открыть')}{T('hide', 'fog', 'Закрыть')}</>}
         <button className="ghost" onClick={() => zoom(1.25)} aria-label="Приблизить">+</button>
         <button className="ghost" onClick={() => zoom(0.8)} aria-label="Отдалить">−</button>
         <button className="ghost" onClick={fit}>По размеру окна</button>
-        <small>{map.pins.length ? `меток: ${map.pins.length}` : 'меток нет'}</small>
+        <small>{map.pins.length ? `меток: ${map.pins.length}` : 'меток нет'} · мест: {places.length}</small>
       </div>
+      <div className="row tight">
+        {busy ? <span className="busy"><span className="spinner">🎲</span> {busy}</span> : <>
+          <button className="ghost" title="Жители и задания – в поселениях, враги и добыча – в диких местах (только там, где пусто)" disabled={!places.length}
+            onClick={() => work('Населяем…', () => api.PopulateMap(map.id, level, true))}>✨ Населить карту</button>
+          <button className="ghost" disabled={!places.length} onClick={() => work('Населяем заново…', () => api.PopulateMap(map.id, level, false))}>🎲 Всё заново</button>
+          <button className="ghost" title="Нейросеть Gemini найдёт на картинке города, таверны, логова и руины" onClick={() => work('Нейросеть смотрит на карту… (до минуты)', () => api.RecognizeMap(map.id, level))}>🤖 Распознать ИИ</button>
+          <label className="eq"><input type="checkbox" checked={showPlaces} onChange={(e) => setShowPlaces(e.target.checked)} /> показывать места</label>
+          <label className="eq"><input type="checkbox" checked={labels} onChange={(e) => setLabels(e.target.checked)} /> подписи городов</label></>}
+      </div>
+      {tool === 'place' && <PlaceTool kind={placeKind} setKind={setPlaceKind} name={placeName} setName={setPlaceName} />}
       {tool === 'pin' && <div className="row tight"><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Подпись метки, затем клик по карте" aria-label="Подпись метки" /></div>}
       {(tool === 'reveal' || tool === 'hide') && <div className="row tight"><label className="inl">Кисть <input type="range" min="10" max="300" value={brush} onChange={(e) => setBrush(+e.target.value)} /> {brush}</label>
         <button className="ghost" onClick={() => fogAll(true)}>Открыть всё</button><button className="ghost" onClick={() => fogAll(false)}>Закрыть всё</button></div>}
@@ -192,6 +240,8 @@ function Viewer({ map, img, guard, reload }) {
         {feetOf == null && <small> – включите сетку, чтобы считать в футах</small>}
         <button className="ghost small" onClick={() => { setCell(Math.round(dist)); setGridOn(true); saveGrid(true, dist) }}>Принять за клетку</button>
         <button className="ghost small" onClick={() => setRuler(null)}>Скрыть</button></div>}
+      <div className="mapwrap">
+      {selected && <PlaceCard key={selected.id} map={map} place={selected} cat={cat} level={level} guard={guard} onMap={onMap} onSelect={select} reload={reloadChars} notify={notify} />}
       <div className="mapbox" ref={box} style={{ cursor }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         <div className="mapl" style={{ transform: `translate(${v.x}px,${v.y}px) scale(${v.k})`, '--ik': 1 / v.k }}>
           <img ref={im} src={img} alt={map.name} draggable="false" onLoad={(e) => { setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight }); fit() }} />
@@ -201,7 +251,9 @@ function Viewer({ map, img, guard, reload }) {
             <circle cx={ruler[0]} cy={ruler[1]} r={5 / v.k} fill="#ffd34d" /><circle cx={ruler[2]} cy={ruler[3]} r={5 / v.k} fill="#ffd34d" /></svg>}
           {map.pins.map((p, i) => <div className="pin" key={`${i}:${p.x}:${p.y}`} style={{ left: p.x, top: p.y }}><span>{p.text}</span>
             <button aria-label={`Удалить метку ${p.text}`} onClick={() => guard(async () => { await api.RemovePin(map.id, i); await reload() })}>✕</button></div>)}
+          {showPlaces && places.map((p) => <PlaceMarker key={p.id} p={p} selected={p.id === sel} onSelect={select} labels={labels} />)}
         </div>
+      </div>
       </div>
     </>
   )

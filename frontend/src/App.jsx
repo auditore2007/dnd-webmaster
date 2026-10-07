@@ -131,7 +131,7 @@ export default function App() {
             {screen === 'battle' && <Encounter {...props} mode={mode} throwDice={throwDice} />}
             {screen === 'gm' && <GMScreen {...props} put={put} open={open} />}
             {screen === 'library' && <Library {...props} lib={lib} />}
-            {screen === 'map' && <MapsView guard={guard} rev={rev} />}
+            {screen === 'map' && <MapsView guard={guard} rev={rev} chars={chars} cat={cat} reload={reload} notify={setInfo} />}
             {screen === 'log' && <LogView guard={guard} restored={restored} />}
             {screen === 'sheet' && (hero && rs
               ? <Sheet key={hero.id} hero={hero} rs={rs} lib={lib} chars={chars} reload={reload} mode={mode} dc={dc} roll={roll} guard={guard} put={put} remove={remove} />

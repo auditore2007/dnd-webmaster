@@ -97,6 +97,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .row button.primary,.vitals button.primary{background:linear-gradient(135deg,var(--brass2),var(--brass));color:var(--gold-ink);border-color:var(--brass);font-weight:600}
 .small{font-size:12px;padding:3px 9px;cursor:pointer;border:1px solid var(--line);border-radius:9px;background:none}
 .small.icon{padding:3px 7px;font-size:15px;line-height:1}
+.primary.small{background:linear-gradient(135deg,var(--brass2),var(--brass));color:var(--gold-ink);border:0;font-weight:600}
 .link{background:none;border:0;padding:0;color:var(--ink);text-align:left}.link:hover{color:var(--brass)}
 input,select,textarea{background:color-mix(in srgb,var(--panel) 80%,transparent);border:1px solid var(--line);border-radius:9px;padding:6px 9px;min-width:0;transition:border-color .2s,box-shadow .2s}
 input:hover,select:hover,textarea:hover{border-color:var(--line2)}
@@ -456,3 +457,33 @@ button.chip:not(:disabled):hover{border-color:var(--brass);transform:translateY(
   .name{font-size:30px}
   .act{grid-template-columns:1fr}
 }
+
+/* ---------- места на карте, генераторы, импорт ---------- */
+.mapgen{margin-top:0}
+.maptools h3{margin:0}
+.impbox{border:1px dashed var(--line);border-radius:12px;padding:10px 12px}.impbox p{margin:4px 0}
+.busy{display:inline-flex;align-items:center;gap:8px;color:var(--brass);font-weight:600}.busy .spinner{display:inline-block;animation:spin 1s linear infinite}
+.mapwrap{position:relative}
+.place{position:absolute;transform:translate(-50%,-50%) scale(var(--ik,1));transform-origin:50% 50%;display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:0;padding:0;cursor:pointer;z-index:2;animation:pinDropC .45s var(--spring) both}
+.place .pi{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font-size:13px;line-height:1;background:var(--panel);border:2px solid var(--brass);
+  box-shadow:0 4px 10px -3px #000c;transition:transform .2s var(--spring),box-shadow .2s}
+.place.danger .pi{border-color:var(--bad)}
+.place.k-capital .pi,.place.k-city .pi{width:30px;height:30px;font-size:16px;border-width:3px}
+.place:hover .pi{transform:scale(1.25)}
+.place.sel .pi{transform:scale(1.3);box-shadow:0 0 0 4px color-mix(in srgb,var(--brass) 45%,transparent),0 6px 14px -4px #000}
+.place .pl{white-space:nowrap;font:700 12px Onest,sans-serif;color:#fff;text-shadow:0 1px 2px #000,0 0 6px #000c;padding:0 4px}
+@keyframes pinDropC{0%{opacity:0;transform:translate(-50%,-180%) scale(var(--ik,1))}100%{opacity:1;transform:translate(-50%,-50%) scale(var(--ik,1))}}
+.pcard{position:absolute;right:10px;top:10px;bottom:10px;width:min(360px,46%);overflow:auto;z-index:5;padding:12px 14px;border-radius:14px;
+  background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--brass);box-shadow:0 18px 40px -16px #000;animation:cardIn .35s var(--spring) both}
+@keyframes cardIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.pch{display:flex;gap:10px;align-items:center}.pch div{display:flex;flex-direction:column}.pch b{font:800 19px Alegreya,serif}
+.pi.big{font-size:28px}
+.pcard h4{margin:12px 0 6px}
+.pnote{white-space:pre-line;font-size:14px;color:var(--mute)}
+.npc{border-top:1px solid var(--line);padding:5px 0}.npc summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.npc summary::-webkit-details-marker{display:none}.npc p{margin:4px 0;font-size:14px}.npc .chip{cursor:default;font-size:11px;padding:1px 8px}
+.secret{color:var(--bad)}
+.quest{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;display:grid;gap:4px}.quest p{margin:0;font-size:14px}
+.quest .ghost{justify-self:start}
+@media (max-width:900px){.pcard{position:static;width:auto;margin-bottom:8px}}

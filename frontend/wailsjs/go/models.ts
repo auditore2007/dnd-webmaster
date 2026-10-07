@@ -371,6 +371,7 @@ export namespace model {
 	    hit: boolean;
 	    crit: boolean;
 	    rolls: number[];
+	    kept: number;
 	    total: number;
 	    target: number;
 	    damage: number;
@@ -385,6 +386,7 @@ export namespace model {
 	        this.hit = source["hit"];
 	        this.crit = source["crit"];
 	        this.rolls = source["rolls"];
+	        this.kept = source["kept"];
 	        this.total = source["total"];
 	        this.target = source["target"];
 	        this.damage = source["damage"];

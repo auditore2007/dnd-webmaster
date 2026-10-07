@@ -151,6 +151,8 @@ type ab struct {
 	Special    *model.Special
 	SpecialDmg val
 	DC         string
+	Need       string // "rage" – только в ярости
+	Pick       []ab   // случайный вариант (волна дикой магии): берутся его Fx, Temp, Heal и Extra
 }
 
 func (a ab) String() string { return a.Class + "/" + a.Sub + "/" + a.Key }
@@ -161,7 +163,7 @@ func efx(name string, rounds int, cond string) *effectSpec {
 
 // ---------- таблица способностей ----------
 
-var abTable = []ab{
+var coreAbTable = []ab{
 	// Варвар
 	{Class: "barbarian", Lvl: 2, Key: "reckless", Name: "Безрассудная атака", Fx: efx("Безрассудная атака", 1, "Безрассудство"),
 		Desc: "Преимущество на ваши атаки, но и по вам с преимуществом – до начала вашего следующего хода."},
@@ -317,6 +319,9 @@ var abTable = []ab{
 		Desc: "Цена: бросок кубика обряда в HP. Каждое попадание + кубик огнём, пока не снимете."},
 }
 
+// abTable – все способности: общие для классов и подклассов (coreAbTable) и остальных подклассов (subAbTable).
+var abTable = slices.Concat(coreAbTable, subAbTable)
+
 func num2(base string, add func(x ctx) int) val {
 	return func(x ctx) string { return fmt.Sprintf("%s+%d", base, add(x)) }
 }
@@ -421,7 +426,7 @@ func (d DnD5e) abilityFeatures(c *model.Character) (fs []model.Feature) {
 		if a.Pool != "" {
 			left, mx := poolLeft(c, x, a.Pool)
 			f.Pool, f.Left, f.Max, f.Rest = pools[a.Pool].Name, left, mx, pools[a.Pool].restFor(x.Lvl)
-			if a.Special != nil && left < max(1, a.Cost) {
+			if a.Special != nil && a.Pool != "" && left < max(1, a.Cost) {
 				f.On = true // для особых способностей On означает «недоступно»
 			}
 		}
@@ -483,6 +488,8 @@ func (d DnD5e) Ability(r dice.Roller, key string, src, tgt *model.Character) (ms
 		return "", 0, errors.New("эта способность применяется в бою")
 	case src.Dead || src.Down():
 		return "", 0, errors.New("герой без сознания")
+	case a.Need == "rage" && !src.Active["rage"]:
+		return "", 0, errors.New("нужна ярость")
 	}
 	x := d.ctxOf(src)
 	// повторное применение постоянной надбавки снимает её без затрат
@@ -556,6 +563,11 @@ func (d DnD5e) Ability(r dice.Roller, key string, src, tgt *model.Character) (ms
 	// затраты
 	if a.Pool != "" {
 		src.Count(poolKey(a.Pool), cost)
+	}
+	if len(a.Pick) > 0 { // волна дикой магии: случайный эффект
+		v := a.Pick[r.Intn(len(a.Pick))]
+		a.Name += ": " + v.Name
+		a.Fx, a.Temp, a.Heal, a.Extra = v.Fx, v.Temp, v.Heal, v.Extra
 	}
 	if hpCost > 0 {
 		src.HP -= hpCost
@@ -698,12 +710,11 @@ func (d DnD5e) applyRiders(r dice.Roller, a, t *model.Character, w model.Weapon,
 		}
 		if rd.Save != "" && rd.Cond != "" {
 			dc := dcOf(x, rd.DC)
-			tot := d.saveRoll(r, t, rd.Save)
-			if tot >= dc {
-				note += fmt.Sprintf(" [%s: спасбросок %s против %d – успех]", ab.Name, saveText(tot), dc)
+			if _, txt, ok := d.saveVs(r, t, rd.Save, dc); ok {
+				note += fmt.Sprintf(" [%s: спасбросок %s против %d – успех]", ab.Name, txt, dc)
 			} else {
 				AddEffect(t, model.Effect{Name: ab.Name, Rounds: rd.Rounds, Cond: rd.Cond, Src: a.ID})
-				note += fmt.Sprintf(" [%s: спасбросок %s против %d – %s]", ab.Name, saveText(tot), dc, rd.Cond)
+				note += fmt.Sprintf(" [%s: спасбросок %s против %d – %s]", ab.Name, txt, dc, rd.Cond)
 			}
 		}
 		if !rd.Persist {
@@ -743,9 +754,14 @@ func (d DnD5e) heroSpecial(r dice.Roller, key string, src *model.Character, foes
 	if src.Dead || src.Down() {
 		return nil, errors.New("герой без сознания")
 	}
+	if a.Need == "rage" && !src.Active["rage"] {
+		return nil, errors.New("нужна ярость")
+	}
 	x := d.ctxOf(src)
-	if left, _ := poolLeft(src, x, a.Pool); left < max(1, a.Cost) {
-		return nil, fmt.Errorf("не хватает ресурса «%s»", pools[a.Pool].Name)
+	if a.Pool != "" {
+		if left, _ := poolLeft(src, x, a.Pool); left < max(1, a.Cost) {
+			return nil, fmt.Errorf("не хватает ресурса «%s»", pools[a.Pool].Name)
+		}
 	}
 	s := *a.Special
 	s.Key, s.Name, s.DC = key, a.Name, dcOf(x, a.DC)
@@ -759,7 +775,9 @@ func (d DnD5e) heroSpecial(r dice.Roller, key string, src *model.Character, foes
 	if err != nil {
 		return nil, err
 	}
-	src.Count(poolKey(a.Pool), max(1, a.Cost))
+	if a.Pool != "" {
+		src.Count(poolKey(a.Pool), max(1, a.Cost))
+	}
 	return lines, nil
 }
 

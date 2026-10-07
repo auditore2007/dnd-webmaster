@@ -32,7 +32,12 @@ type Monster struct {
 	Vuln      []string        `json:"vuln"`
 	Immune    []string        `json:"immune"`
 	Specials  []model.Special `json:"specials"`
-	Custom    bool            `json:"custom"` // создано мастером
+	Legendary int             `json:"legendary"` // очков легендарных действий за раунд (0 – не босс)
+	LegRes    int             `json:"legRes"`    // легендарных сопротивлений за бой
+	LegActs   []model.LegAct  `json:"legActs"`   // особые легендарные действия; без них – атаки оружием
+	Lair      []model.Special `json:"lair"`      // действия логова (в начале раунда, если бой идёт в логове)
+	Phase     *model.Phase    `json:"phase"`     // вторая фаза
+	Custom    bool            `json:"custom"`    // создано мастером
 	Desc      string          `json:"desc"`
 }
 
@@ -88,6 +93,9 @@ func init() {
 		}
 		x.Traits, x.Resist, x.Vuln, x.Immune = split(p[11], ";"), split(p[12], ","), split(p[13], ","), split(p[14], ",")
 		x.Specials = slices.Clone(builtin[x.ID])
+		if b, ok := bosses[x.ID]; ok {
+			x.Legendary, x.LegRes, x.LegActs, x.Lair, x.Phase = b.Legendary, b.LegRes, b.LegActs, b.Lair, b.Phase
+		}
 		list = append(list, x)
 	}
 	sort.SliceStable(list, func(i, j int) bool {
@@ -141,7 +149,8 @@ func Build(x Monster, n int, newID func() string) *model.Character {
 	return &model.Character{ID: newID(), Name: fmt.Sprintf("%s %d", x.Name, n), Kind: "monster", Ruleset: "dnd5e", Level: 1,
 		Abilities: ab, HP: x.HP, Weapons: append([]model.Weapon(nil), x.Weapons...),
 		Stat: &model.MonsterStat{CR: x.CR, Kind: x.Kind, AC: x.AC, MaxHP: x.HP, Attack: x.Attack, Speed: x.Speed, Traits: slices.Clone(x.Traits),
-			ID: x.ID, Specials: slices.Clone(x.Specials), Multi: slices.Clone(x.Multi), Resist: slices.Clone(x.Resist), Vuln: slices.Clone(x.Vuln), Immune: slices.Clone(x.Immune)}}
+			ID: x.ID, Specials: slices.Clone(x.Specials), Multi: slices.Clone(x.Multi), Resist: slices.Clone(x.Resist), Vuln: slices.Clone(x.Vuln), Immune: slices.Clone(x.Immune),
+			Legendary: x.Legendary, LegRes: x.LegRes, LegActs: cloneActs(x.LegActs), Lair: slices.Clone(x.Lair), Phase: clonePhase(x.Phase)}}
 }
 
 // Make создаёт встроенное существо.
@@ -227,6 +236,28 @@ func Validate(m *Monster) error {
 			return err
 		}
 	}
+	if err := validBoss(m); err != nil {
+		return err
+	}
 	m.Custom = true
 	return nil
+}
+
+func cloneActs(in []model.LegAct) []model.LegAct {
+	out := slices.Clone(in)
+	for i, a := range out {
+		if a.Special != nil {
+			sp := *a.Special
+			out[i].Special = &sp
+		}
+	}
+	return out
+}
+
+func clonePhase(p *model.Phase) *model.Phase {
+	if p == nil {
+		return nil
+	}
+	c := *p
+	return &c
 }

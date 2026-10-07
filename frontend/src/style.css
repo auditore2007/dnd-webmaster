@@ -223,6 +223,7 @@ button.chip:not(:disabled):hover{border-color:var(--brass);transform:translateY(
 .gm{display:grid;gap:8px;margin-top:10px}
 .act{grid-template-columns:1fr 1fr auto auto;align-items:end;padding:12px;border:1px solid var(--brass);border-radius:14px;background:color-mix(in srgb,var(--brass) 6%,transparent);animation:fadeUp .35s var(--ease) both}
 .act h3{grid-column:1/-1;margin:2px 0}
+.act .abil,.act .cf{grid-column:1/-1}.act .abil h3{margin-top:8px}
 .pk{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:9px;transition:background .2s}.pk:hover{background:color-mix(in srgb,var(--brass) 8%,transparent)}
 .spellp{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .spec{border-color:#c2763b!important}
@@ -234,6 +235,19 @@ button.chip:not(:disabled):hover{border-color:var(--brass);transform:translateY(
 .log li{display:flex;gap:10px;padding:6px 4px;border-top:1px solid var(--line);animation:logIn .35s var(--ease) both}
 .log li:first-child{color:var(--ink)}
 .spedit{border:1px dashed var(--line);border-radius:10px;padding:8px;margin:6px 0;display:grid;gap:6px}
+
+/* боссы, автоход, мораль */
+.bopts{display:flex;flex-wrap:wrap;gap:6px 18px;margin:-4px 0 12px;padding:8px 12px;border:1px dashed var(--line);border-radius:12px}
+.chip.boss{background:color-mix(in srgb,var(--brass) 18%,var(--panel));border-color:var(--brass);color:var(--ink);cursor:default}
+.chip.phase{background:linear-gradient(110deg,color-mix(in srgb,var(--bad) 18%,var(--panel)) 30%,color-mix(in srgb,var(--bad) 34%,var(--panel)) 50%,color-mix(in srgb,var(--bad) 18%,var(--panel)) 70%);background-size:250% 100%;border-color:var(--bad);color:var(--ink);cursor:default;animation:chipIn .4s var(--spring) both,shimmer 2.4s linear infinite}
+.legp{padding:10px 12px;margin:10px 0;border:1px solid var(--brass);border-radius:14px;background:color-mix(in srgb,var(--brass) 7%,transparent);animation:fadeUp .35s var(--ease) both}
+.legp h4{margin:0 0 4px;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.legp .ghost.small small{opacity:.7}
+.pips{display:inline-flex;gap:3px}.pips i{width:11px;height:11px;border-radius:50%;border:2px solid var(--brass);transition:all .3s var(--spring)}.pips i.on{background:var(--brass);box-shadow:0 0 8px -1px var(--brass)}
+.act.auto{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:16px}
+.act.auto .spinner{display:inline-block;font-size:22px;animation:spin 1s linear infinite}
+.act.auto .ghost{margin-left:auto}
+.gone{padding:6px 10px;border-radius:10px;background:color-mix(in srgb,var(--good) 8%,transparent);animation:fadeUp .3s var(--ease) both}
 
 /* ---------- кубики ---------- */
 .dice{display:flex;flex-direction:column}

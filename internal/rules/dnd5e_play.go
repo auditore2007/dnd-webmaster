@@ -449,10 +449,10 @@ func (d DnD5e) spellCore(r dice.Roller, src *model.Character, s model.Spell, slo
 		}
 		dmg := expr.Roll(r, false).Total
 		for _, t := range targets {
-			tot := d.saveRoll(r, t, def.Save)
-			lines = append(lines, fmt.Sprintf("%s: спасбросок %s против СЛ %d", t.Name, saveText(tot), ds.SpellDC))
+			_, txt, ok := d.saveVs(r, t, def.Save, ds.SpellDC)
+			lines = append(lines, fmt.Sprintf("%s: спасбросок %s против СЛ %d", t.Name, txt, ds.SpellDC))
 			dm := dmg
-			if tot >= ds.SpellDC {
+			if ok {
 				if !def.Half {
 					lines = append(lines, "→ "+t.Name+": заклинание не действует")
 					continue

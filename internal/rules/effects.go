@@ -206,6 +206,18 @@ func (d DnD5e) saveRoll(r dice.Roller, t *model.Character, ab string) int {
 	return k + d.Derive(t).Saves[ab]
 }
 
+// saveVs – спасбросок против сложности. Босс с легендарным сопротивлением превращает провал в успех.
+func (d DnD5e) saveVs(r dice.Roller, t *model.Character, ab string, dc int) (tot int, txt string, ok bool) {
+	tot = d.saveRoll(r, t, ab)
+	txt, ok = saveText(tot), tot >= dc
+	if !ok && t.Stat != nil && t.Stat.LegRes > t.Counters[legResKey] {
+		t.Count(legResKey, 1)
+		ok = true
+		txt += fmt.Sprintf(" → легендарное сопротивление (осталось %d)", t.Stat.LegRes-t.Counters[legResKey])
+	}
+	return tot, txt, ok
+}
+
 func saveText(total int) string {
 	if total == saveFatal {
 		return "автоматический провал"
@@ -300,12 +312,12 @@ func (d DnD5e) applySpellFx(r dice.Roller, src *model.Character, ref, name strin
 	for _, t := range targets {
 		e := model.Effect{Name: name, Rounds: f.Dur, Cond: f.Cond, Src: src.ID, Conc: f.Conc, AC: f.AC, Atk: f.Atk}
 		if f.Save != "" {
-			tot := d.saveRoll(r, t, f.Save)
-			if tot >= ds.SpellDC {
-				lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против СЛ %d – заклинание не действует", t.Name, saveText(tot), ds.SpellDC))
+			_, txt, ok := d.saveVs(r, t, f.Save, ds.SpellDC)
+			if ok {
+				lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против СЛ %d – заклинание не действует", t.Name, txt, ds.SpellDC))
 				continue
 			}
-			lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против СЛ %d – провал", t.Name, saveText(tot), ds.SpellDC))
+			lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против СЛ %d – провал", t.Name, txt, ds.SpellDC))
 			if f.Again != "-" {
 				e.Save, e.DC = cmp2(f.Again, f.Save), ds.SpellDC
 			}

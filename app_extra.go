@@ -102,7 +102,7 @@ func (a *App) EndEncounter(clearMonsters bool) (int, error) {
 	removed := map[string]bool{}
 	if e := a.state.Encounter; e != nil {
 		e.Cleanup(a.find)
-		for _, id := range e.Order {
+		for _, id := range append(slices.Clone(e.Order), e.Gone...) { // сбежавшие и сдавшиеся остаются на столе, пока их не уберут
 			c := a.find(id)
 			if c == nil {
 				continue

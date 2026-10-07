@@ -27,10 +27,16 @@ type Encounter struct {
 	Seq   int             `json:"seq"`   // сколько записей добавлено за всё время; нужно для журнала сессии
 	Won   string          `json:"won"`   // кто победил: heroes | monsters | ""
 	React map[string]bool `json:"react"` // у кого потрачена реакция в этом раунде
+	// Настройки боя: существа ходят сами, проверяют мораль, бой идёт в логове босса.
+	Auto      bool     `json:"auto"`
+	Morale    bool     `json:"morale"`
+	Lair      bool     `json:"lair"`
+	LairRound int      `json:"lairRound"` // в каком раунде логово уже действовало
+	Gone      []string `json:"gone"`      // существа, которые сбежали или сдались
 }
 
 func Start(r dice.Roller, ids []string, get Lookup) (*Encounter, error) {
-	e := &Encounter{Init: map[string]int{}, Round: 1, React: map[string]bool{}}
+	e := &Encounter{Init: map[string]int{}, Round: 1, React: map[string]bool{}, Auto: true, Morale: true}
 	ruleset := ""
 	for _, id := range ids {
 		if _, dup := e.Init[id]; dup {
@@ -75,6 +81,7 @@ func (e *Encounter) Clone() *Encounter {
 	out.Init = maps.Clone(e.Init)
 	out.Log = slices.Clone(e.Log)
 	out.React = maps.Clone(e.React)
+	out.Gone = slices.Clone(e.Gone)
 	return &out
 }
 
@@ -112,6 +119,11 @@ func (e *Encounter) step() {
 // система правил применяет состояния и спасброски от смерти; упавшие, оглушённые и удалённые пропускаются.
 func (e *Encounter) seek(r dice.Roller, get Lookup) {
 	for i := 0; i < len(e.Order); i++ {
+		e.lairTurn(r, get)
+		if e.flees(r, get) {
+			i-- // сбежавший убран из очереди: на его месте уже следующий, его ход тоже нужно начать
+			continue
+		}
 		delete(e.React, e.Order[e.Turn])
 		if c := get(e.Order[e.Turn]); c != nil && !c.Dead {
 			if rs, err := rules.Get(c.Ruleset); err == nil {
@@ -139,6 +151,9 @@ func (e *Encounter) Next(r dice.Roller, get Lookup) {
 			}
 		}
 	}
+	if e.Auto {
+		e.autoLegendary(r, get)
+	}
 	e.step()
 	e.seek(r, get)
 }
@@ -159,8 +174,10 @@ func (e *Encounter) Reaction(id string) error {
 	return nil
 }
 
-// settle после любого действия: проверки концентрации у получивших урон и снятие «осиротевших» эффектов.
+// settle после любого действия: проверки концентрации у получивших урон, снятие «осиротевших» эффектов,
+// вторая фаза боссов.
 func (e *Encounter) settle(r dice.Roller, get Lookup) {
+	e.phases(get)
 	for _, id := range e.Order {
 		c := get(id)
 		if c == nil || c.Conc == "" {
@@ -237,17 +254,23 @@ func (e *Encounter) concIDs(src string, get Lookup) map[int64]bool {
 
 // Cleanup в конце боя: эффекты и концентрация снимаются, способности существ восстанавливаются.
 func (e *Encounter) Cleanup(get Lookup) {
-	for _, id := range e.Order {
+	for _, id := range append(slices.Clone(e.Order), e.Gone...) {
 		if c := get(id); c != nil {
 			rules.ClearEffects(c)
 			if c.Stat != nil {
+				rules.ResetBoss(c) // фаза и легендарные ресурсы – только на один бой
 				c.Used = nil
 			}
 		}
 	}
 }
 
-func (e *Encounter) Current() string { return e.Order[e.Turn] }
+func (e *Encounter) Current() string {
+	if e.Turn < 0 || e.Turn >= len(e.Order) {
+		return ""
+	}
+	return e.Order[e.Turn]
+}
 
 // mixed – в бою есть и герои, и существа: тогда «враги» – это противоположная сторона. Если все участники одного вида
 // (дуэль героев), врагом считается любой другой участник.
@@ -366,10 +389,11 @@ func (e *Encounter) Winner(get Lookup) string {
 			}
 		}
 	}
+	mixed := e.mixed(get) || (len(e.Gone) > 0 && heroes > 0)
 	switch {
-	case mons == 0 && heroes > 0 && e.mixed(get):
+	case mons == 0 && heroes > 0 && mixed:
 		return "heroes"
-	case heroes == 0 && mons > 0 && e.mixed(get):
+	case heroes == 0 && mons > 0 && mixed:
 		return "monsters"
 	}
 	return ""
@@ -406,41 +430,43 @@ func (e *Encounter) Attack(r dice.Roller, get Lookup, targetID string, w model.W
 	defer e.settle(r, get)
 	e.Left--
 	e.Acted = e.Left <= 0
-	e.report(rs, att, def, w, res, false)
-	if res.Hit {
-		lines, counter := rules.Strike(rs, def, res.Damage, res.Crit)
-		for _, l := range lines {
-			e.logf("%s", l)
-		}
-		if counter && def.Standing() && att.Standing() {
-			cw := model.Unarmed
-			if ws := rs.Derive(def).Weapons; len(ws) > 0 {
-				cw = ws[0]
-			}
-			cr := rs.Attack(r, def, att, cw, dice.Normal)
-			e.report(rs, def, att, cw, cr, true)
-			if cr.Hit {
-				cl, _ := rules.Strike(rs, att, cr.Damage, cr.Crit)
-				for _, l := range cl {
-					e.logf("%s", l)
-				}
-			}
-		}
-	}
+	e.resolve(r, rs, att, def, w, res, "")
 	return res, nil
 }
 
-func (e *Encounter) report(rs rules.Ruleset, a, d *model.Character, w model.Weapon, res model.AttackResult, counter bool) {
+// resolve записывает атаку в журнал и наносит урон; цель с правом ответного удара бьёт в ответ.
+func (e *Encounter) resolve(r dice.Roller, rs rules.Ruleset, att, def *model.Character, w model.Weapon, res model.AttackResult, pre string) {
+	e.report(rs, att, def, w, res, pre)
+	if !res.Hit {
+		return
+	}
+	lines, counter := rules.Strike(rs, def, res.Damage, res.Crit)
+	for _, l := range lines {
+		e.logf("%s", l)
+	}
+	if counter && def.Standing() && att.Standing() {
+		cw := model.Unarmed
+		if ws := rs.Derive(def).Weapons; len(ws) > 0 {
+			cw = ws[0]
+		}
+		cr := rs.Attack(r, def, att, cw, dice.Normal)
+		e.report(rs, def, att, cw, cr, "↩️ ")
+		if cr.Hit {
+			cl, _ := rules.Strike(rs, att, cr.Damage, cr.Crit)
+			for _, l := range cl {
+				e.logf("%s", l)
+			}
+		}
+	}
+}
+
+func (e *Encounter) report(rs rules.Ruleset, a, d *model.Character, w model.Weapon, res model.AttackResult, pre string) {
 	out := "промах"
 	if res.Hit {
 		out = fmt.Sprintf("попадание, урон %d", res.Damage)
 		if res.Crit {
 			out = "критическое " + out
 		}
-	}
-	pre := ""
-	if counter {
-		pre = "↩️ "
 	}
 	e.logf("%s%s → %s (%s): %d против %d – %s", pre, a.Name, d.Name, w.Name, res.Total, res.Target, out)
 }

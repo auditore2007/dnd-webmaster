@@ -16,7 +16,7 @@ type bonus = map[string]int
 
 var dndAbilities = []Ability{{"str", "Сила"}, {"dex", "Ловкость"}, {"con", "Телосложение"}, {"int", "Интеллект"}, {"wis", "Мудрость"}, {"cha", "Харизма"}}
 
-var dndConditions = []string{"Ослеплён", "Очарован", "Оглохший", "Напуган", "Схвачен", "Недееспособен", "Невидим", "Парализован", "Окаменел", "Отравлен", "Сбит с ног", "Опутан", "Ошеломлён", "Без сознания", "Концентрация", "Уклонение", "Преимущество", "Безрассудство"}
+var dndConditions = []string{"Ослеплён", "Очарован", "Оглохший", "Напуган", "Схвачен", "Недееспособен", "Невидим", "Парализован", "Окаменел", "Отравлен", "Сбит с ног", "Опутан", "Ошеломлён", "Без сознания", "Концентрация", "Уклонение", "Преимущество", "Безрассудство", "Помеха"}
 
 var dndRests = []Ability{{"short", "Короткий отдых"}, {"long", "Долгий отдых"}}
 
@@ -129,7 +129,7 @@ func (d DnD5e) Initiative(r dice.Roller, c *model.Character) int {
 }
 
 var (
-	dndDisAttack    = []string{"Отравлен", "Напуган", "Опутан", "Ослеплён", "Сбит с ног"}
+	dndDisAttack    = []string{"Отравлен", "Напуган", "Опутан", "Ослеплён", "Сбит с ног", "Помеха"}
 	dndAdvAgainst   = []string{"Парализован", "Окаменел", "Ошеломлён", "Без сознания", "Опутан", "Ослеплён", "Подсвечен"}
 	dndAutoCrit     = []string{"Парализован", "Без сознания"}
 	dndIncapacitate = []string{"Недееспособен", "Парализован", "Окаменел", "Ошеломлён", "Без сознания"}
@@ -220,6 +220,9 @@ func (d DnD5e) TurnStart(r dice.Roller, c *model.Character) ([]string, bool) {
 	if c.Dead {
 		return nil, true
 	}
+	if c.Stat != nil {
+		delete(c.Counters, legKey) // легендарные действия восстанавливаются в начале своего хода
+	}
 	lines := d.tick(r, c)
 	switch {
 	case c.HP > 0:
@@ -263,13 +266,13 @@ func (d DnD5e) Special(r dice.Roller, key string, src *model.Character, foes []*
 	src.Mark("breath")
 	lines := []string{fmt.Sprintf("%s: дыхание дракона (%dd6, СЛ %d)", src.Name, n, dc)}
 	for _, f := range foes {
-		tot := d.saveRoll(r, f, "dex")
+		_, txt, ok := d.saveVs(r, f, "dex", dc)
 		dmg := dice.Expr{Count: n, Sides: 6}.Roll(r, false).Total
-		if tot >= dc {
+		if ok {
 			dmg /= 2
 		}
 		dmg = int(float64(dmg) * d.Resist(f, "fire"))
-		lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против %d, урон %d", f.Name, saveText(tot), dc, dmg))
+		lines = append(lines, fmt.Sprintf("→ %s: спасбросок %s против %d, урон %d", f.Name, txt, dc, dmg))
 		sl, _ := Strike(d, f, dmg, false)
 		lines = append(lines, sl...)
 	}

@@ -124,6 +124,32 @@ type MonsterStat struct {
 	Vuln     []string  `json:"vuln"`
 	Immune   []string  `json:"immune"`
 	Specials []Special `json:"specials"`
+	// Босс: легендарные действия между ходами других, легендарное сопротивление, логово и вторая фаза.
+	Legendary int       `json:"legendary,omitempty"` // очков легендарных действий за раунд
+	LegRes    int       `json:"legRes,omitempty"`    // легендарных сопротивлений за бой
+	LegActs   []LegAct  `json:"legActs,omitempty"`   // особые легендарные действия (атаки оружием добавляются сами)
+	Lair      []Special `json:"lair,omitempty"`      // действия логова: одно в начале каждого раунда
+	Phase     *Phase    `json:"phase,omitempty"`     // вторая фаза при падении здоровья
+}
+
+// LegAct – легендарное действие: атака оружием существа (Weapon ≥ 0) или особая способность (Special).
+type LegAct struct {
+	Key     string   `json:"key"`
+	Name    string   `json:"name"`
+	Cost    int      `json:"cost"` // сколько очков стоит (1–3)
+	Weapon  int      `json:"weapon"`
+	Special *Special `json:"special,omitempty"`
+}
+
+// Phase – вторая фаза босса: срабатывает один раз, когда здоровье падает до Pct процентов.
+type Phase struct {
+	Pct      int    `json:"pct"`
+	Name     string `json:"name"`
+	Atk      int    `json:"atk"`      // прибавка к атаке
+	AC       int    `json:"ac"`       // прибавка к КД
+	Extra    int    `json:"extra"`    // дополнительных атак за ход
+	Temp     int    `json:"temp"`     // временные HP
+	Recharge bool   `json:"recharge"` // все способности восстанавливаются
 }
 
 type Character struct {
@@ -264,6 +290,17 @@ func (c *Character) Clone() Character {
 		st := *c.Stat
 		st.Traits, st.Multi, st.Specials = slices.Clone(st.Traits), slices.Clone(st.Multi), slices.Clone(st.Specials)
 		st.Resist, st.Vuln, st.Immune = slices.Clone(st.Resist), slices.Clone(st.Vuln), slices.Clone(st.Immune)
+		st.Lair, st.LegActs = slices.Clone(st.Lair), slices.Clone(st.LegActs)
+		for i, a := range st.LegActs {
+			if a.Special != nil {
+				sp := *a.Special
+				st.LegActs[i].Special = &sp
+			}
+		}
+		if st.Phase != nil {
+			ph := *st.Phase
+			st.Phase = &ph
+		}
 		out.Stat = &st
 	}
 	return out

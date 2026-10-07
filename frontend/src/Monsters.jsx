@@ -16,6 +16,10 @@ export function MonsterCard({ m, children }) {
         <p className="hint">КД {m.ac} · HP {m.hp} · атака {fmt(m.attack)} · скорость {m.speed}</p>
         <p className="hint">{m.weapons.map((w) => `${w.name} ${w.dice}`).join(' · ')}{m.multi?.length > 1 ? ` · мультиатака ×${m.multi.length}` : ''}</p>
         <div className="chips">
+          {m.legendary > 0 && <span className="chip boss" title={(m.legActs?.length ? m.legActs.map((a) => `${a.name} (${a.cost})`).join(', ') : 'атаки оружием') + ' – в чужие ходы'}>👑 легендарные действия {m.legendary}</span>}
+          {m.legRes > 0 && <span className="chip boss">🛡 легендарное сопротивление {m.legRes}</span>}
+          {m.lair?.length > 0 && <span className="chip boss" title={m.lair.map((x) => x.name).join(', ')}>🏰 логово</span>}
+          {m.phase && <span className="chip phase" title={`При ${m.phase.pct}% здоровья`}>🔥 фаза: {m.phase.name}</span>}
           {m.specials?.map((x) => <span className="chip fx" key={x.key} title={x.desc}>{x.mode === 'area' ? '💥' : '🎯'} {x.name}</span>)}
           {m.traits?.map((t) => <span className="chip" key={t}>{t}</span>)}
           {m.immune?.map((t) => <span className="chip ok" key={'i' + t}>иммунитет: {DMG[t] ?? t}</span>)}
@@ -77,13 +81,15 @@ export function MonsterPicker({ guard, onAdd, button = 'Добавить', tick 
 }
 
 const TYPES = Object.keys(DMG)
-const blank = () => ({ name: '', cr: '1', kind: 'beast', ac: 12, hp: 20, attack: 3, speed: 30, abilities: [10, 10, 10, 10, 10, 10], weapons: [{ name: 'Удар', dice: '1d6+1', type: 'slashing', ranged: false }], multi: '', traits: '', resist: [], vuln: [], immune: [], desc: '', specials: [] })
+const blank = () => ({ name: '', cr: '1', kind: 'beast', ac: 12, hp: 20, attack: 3, speed: 30, abilities: [10, 10, 10, 10, 10, 10], weapons: [{ name: 'Удар', dice: '1d6+1', type: 'slashing', ranged: false }], multi: '', traits: '', resist: [], vuln: [], immune: [], desc: '', specials: [], legendary: 0, legRes: 0, legActs: [], lair: [], phase: null })
+const DEFAULT_PHASE = { pct: 50, name: 'Ярость', atk: 2, ac: 0, extra: 0, temp: 0, recharge: true }
 const newSpecial = () => ({ name: '', mode: 'single', attack: true, dmg: '2d6', type: 'piercing', xDmg: '', xType: 'poison', save: '', dc: 12, half: false, cond: '', rounds: 0, repeat: false, recharge: false, once: false })
 const ABN = ['Сила', 'Ловкость', 'Телосложение', 'Интеллект', 'Мудрость', 'Харизма']
 
 const fromMonster = (m) => ({ id: m.id.startsWith('custom-') ? m.id : undefined, name: m.id.startsWith('custom-') ? m.name : m.name + ' (копия)', cr: m.cr, kind: m.kind, ac: m.ac, hp: m.hp, attack: m.attack, speed: m.speed,
   abilities: [...m.abilities], weapons: m.weapons.map((w) => ({ name: w.name, dice: w.dice, type: w.type, ranged: !!w.ranged })), multi: (m.multi ?? []).map((i) => i + 1).join(', '),
-  traits: (m.traits ?? []).join(', '), resist: [...(m.resist ?? [])], vuln: [...(m.vuln ?? [])], immune: [...(m.immune ?? [])], desc: m.desc ?? '', specials: (m.specials ?? []).map((x) => ({ ...newSpecial(), ...x })) })
+  traits: (m.traits ?? []).join(', '), resist: [...(m.resist ?? [])], vuln: [...(m.vuln ?? [])], immune: [...(m.immune ?? [])], desc: m.desc ?? '', specials: (m.specials ?? []).map((x) => ({ ...newSpecial(), ...x })),
+  legendary: m.legendary ?? 0, legRes: m.legRes ?? 0, legActs: m.legActs ?? [], lair: m.lair ?? [], phase: m.phase ? { ...m.phase } : null })
 
 // MonsterEditor – создание и правка собственного существа.
 export function MonsterEditor({ guard, initial, onSaved, onCancel }) {
@@ -99,6 +105,7 @@ export function MonsterEditor({ guard, initial, onSaved, onCancel }) {
       id: f.id ?? '', name: f.name, cr: f.cr, kind: f.kind, ac: f.ac, hp: f.hp, attack: f.attack, speed: f.speed, abilities: f.abilities,
       weapons: f.weapons.map((w) => ({ ...w, ability: w.ranged ? 'dex' : 'str', finesse: false, bonus: 0 })), weapon: { name: '', dice: '', ability: '', type: '', finesse: false, ranged: false, bonus: 0 },
       multi, traits: f.traits.split(',').map((x) => x.trim()).filter(Boolean), resist: f.resist, vuln: f.vuln, immune: f.immune, desc: f.desc, specials: f.specials, custom: true,
+      legendary: f.legendary, legRes: f.legRes, legActs: f.legendary > 0 ? f.legActs : [], lair: f.lair, phase: f.phase,
     })
     onSaved(saved)
   })
@@ -159,6 +166,24 @@ export function MonsterEditor({ guard, initial, onSaved, onCancel }) {
         </div>
       })}
       <button className="ghost" disabled={f.specials.length >= 6} onClick={() => set('specials', [...f.specials, newSpecial()])}>＋ Способность</button>
+      <h4>👑 Босс <small>(легендарные действия, сопротивление, вторая фаза)</small></h4>
+      <div className="row tight">
+        <label className="eq">Легендарных действий за раунд <input type="number" min="0" max="5" value={f.legendary} onChange={(e) => set('legendary', Math.max(0, Math.min(5, parseInt(e.target.value, 10) || 0)))} style={{ width: 60 }} /></label>
+        <label className="eq">Легендарных сопротивлений <input type="number" min="0" max="5" value={f.legRes} onChange={(e) => set('legRes', Math.max(0, Math.min(5, parseInt(e.target.value, 10) || 0)))} style={{ width: 60 }} /></label>
+      </div>
+      {f.legendary > 0 && <p className="hint">{f.legActs.length ? `Действия: ${f.legActs.map((a) => `${a.name} (${a.cost})`).join(', ')}.` : 'Легендарные действия – атаки каждым оружием существа (по 1 очку).'}</p>}
+      <div className="row tight">
+        <label className="eq"><input type="checkbox" checked={!!f.phase} onChange={(e) => set('phase', e.target.checked ? { ...DEFAULT_PHASE } : null)} /> Вторая фаза</label>
+        {f.phase && <>
+          <input aria-label="Название фазы" value={f.phase.name} onChange={(e) => set('phase', { ...f.phase, name: e.target.value })} style={{ width: 130 }} />
+          <label className="eq">при <input type="number" min="10" max="90" value={f.phase.pct} onChange={(e) => set('phase', { ...f.phase, pct: parseInt(e.target.value, 10) || 50 })} style={{ width: 56 }} />% HP</label>
+          <label className="eq">атака + <input type="number" min="0" max="10" value={f.phase.atk} onChange={(e) => set('phase', { ...f.phase, atk: parseInt(e.target.value, 10) || 0 })} style={{ width: 50 }} /></label>
+          <label className="eq">КД + <input type="number" min="0" max="10" value={f.phase.ac} onChange={(e) => set('phase', { ...f.phase, ac: parseInt(e.target.value, 10) || 0 })} style={{ width: 50 }} /></label>
+          <label className="eq">атак + <input type="number" min="0" max="3" value={f.phase.extra} onChange={(e) => set('phase', { ...f.phase, extra: parseInt(e.target.value, 10) || 0 })} style={{ width: 50 }} /></label>
+          <label className="eq">врем. HP <input type="number" min="0" max="1000" value={f.phase.temp} onChange={(e) => set('phase', { ...f.phase, temp: parseInt(e.target.value, 10) || 0 })} style={{ width: 64 }} /></label>
+          <label className="eq"><input type="checkbox" checked={f.phase.recharge} onChange={(e) => set('phase', { ...f.phase, recharge: e.target.checked })} /> восстановить способности</label>
+        </>}
+      </div>
       <label>Особенности (через запятую)<input value={f.traits} onChange={(e) => set('traits', e.target.value)} placeholder="Полёт, Тёмное зрение" /></label>
       <label>Описание<textarea value={f.desc} onChange={(e) => set('desc', e.target.value)} /></label>
       <div className="row"><button className="primary" disabled={!f.name.trim()} onClick={save}>Сохранить</button><button className="ghost" onClick={onCancel}>Отмена</button></div>

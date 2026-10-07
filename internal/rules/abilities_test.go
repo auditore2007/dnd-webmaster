@@ -55,7 +55,8 @@ func TestAbilityTableIntegrity(t *testing.T) {
 		if a.Name == "" || a.Desc == "" {
 			t.Errorf("%s: нет названия или описания", a)
 		}
-		if !a.Passive && a.Pool == "" && !a.Slot && a.Rider == nil && a.Fx == nil && a.Heal == nil && a.Temp == nil && a.Regain == "" && a.ToPool == "" {
+		if !a.Passive && a.Pool == "" && !a.Slot && a.Rider == nil && a.Fx == nil && a.Heal == nil && a.Temp == nil && a.Regain == "" && a.ToPool == "" &&
+			a.Special == nil && a.Extra == 0 && len(a.Pick) == 0 {
 			t.Errorf("%s: способность ничего не делает", a)
 		}
 	}

@@ -83,3 +83,34 @@ func TestFailedAddToEncounterLeavesNoTrace(t *testing.T) {
 		t.Errorf("гоблин не вошёл в бой после неудачной попытки: %v", e.Order)
 	}
 }
+
+func TestMonsterTurnThroughApp(t *testing.T) {
+	a := newApp()
+	h := hero(t, a)
+	mons, err := a.AddMonster("goblin", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, err := a.StartEncounter([]string{h.ID, mons[0].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Current() != mons[0].ID {
+		if e, err = a.NextTurn(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	v, err := a.MonsterTurn()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Encounter.Current() == mons[0].ID || v.Actor == "" {
+		t.Errorf("после хода существа очередь должна перейти дальше: %+v", v)
+	}
+	if _, err := a.SetEncounterOptions(false, false, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.Encounter(); got.Auto || got.Morale || !got.Lair {
+		t.Errorf("настройки боя не сохранились: %+v", got)
+	}
+}

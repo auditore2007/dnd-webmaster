@@ -136,3 +136,39 @@ func TestCustomMonsterSpecialsValidated(t *testing.T) {
 		t.Error("способность без эффекта")
 	}
 }
+
+// Легендарные действия боссов ссылаются на существующее оружие, у фаз и логова корректные данные.
+func TestBossDataValid(t *testing.T) {
+	for id := range bosses {
+		m := find(t, id)
+		if m.Legendary <= 0 {
+			t.Errorf("%s: босс без легендарных действий", id)
+		}
+		for _, a := range m.LegActs {
+			if a.Special == nil && (a.Weapon < 0 || a.Weapon >= len(m.Weapons)) {
+				t.Errorf("%s: легендарное действие «%s» ссылается на оружие %d из %d", id, a.Name, a.Weapon, len(m.Weapons))
+			}
+			if a.Cost < 1 || a.Cost > 3 {
+				t.Errorf("%s: стоимость «%s» = %d", id, a.Name, a.Cost)
+			}
+		}
+		if p := m.Phase; p != nil && (p.Pct < 10 || p.Pct > 90) {
+			t.Errorf("%s: порог фазы %d%%", id, p.Pct)
+		}
+		c, err := Make(id, 1, func() string { return "x" })
+		if err != nil || c.Stat.Legendary != m.Legendary || len(c.Stat.LegActs) != len(m.LegActs) {
+			t.Errorf("%s: существо на столе не получило данные босса (%v)", id, err)
+		}
+	}
+}
+
+func find(t *testing.T, id string) Monster {
+	t.Helper()
+	for _, m := range List() {
+		if m.ID == id {
+			return m
+		}
+	}
+	t.Fatalf("нет существа %s", id)
+	return Monster{}
+}

@@ -68,6 +68,7 @@ type World struct {
 	State  []int16 // государство клетки, -1 – ничьи земли
 	States []State
 	Burgs  []Burg
+	Sites  []Site  // дикие места; заполняет вызывающий до Render
 	Roads  [][]int // пути по клеткам
 	Sea    [][]int // морские пути
 	score  []float64

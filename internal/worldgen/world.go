@@ -73,9 +73,16 @@ func (g Gen) World(o WorldOpts) (string, []model.Place, error) {
 	if err != nil {
 		return "", nil, err
 	}
+	wild := g.wilds(w)
+	for _, p := range wild {
+		w.Sites = append(w.Sites, atlas.Site{X: p.X, Y: p.Y, Kind: p.Kind})
+	}
 	img := w.Render(g.R)
-	places := g.burgPlaces(w)
-	places = append(places, g.wilds(w, places)...)
+	places := g.burgPlaces(w) // после отрисовки: прибрежные поселения могли сдвинуться на сушу
+	for i := range wild {
+		wild[i].X, wild[i].Y = math.Round(w.Sites[i].X), math.Round(w.Sites[i].Y)
+	}
+	places = append(places, wild...)
 	url, err := canvas{img}.dataURL(88)
 	if err != nil {
 		return "", nil, err
@@ -109,7 +116,11 @@ func (g Gen) burgPlaces(w *atlas.World) []model.Place {
 }
 
 // wilds – логова, руины, пещеры и лагеря вдали от поселений.
-func (g Gen) wilds(w *atlas.World, settled []model.Place) []model.Place {
+func (g Gen) wilds(w *atlas.World) []model.Place {
+	settled := make([]model.Place, len(w.Burgs))
+	for i, b := range w.Burgs {
+		settled[i] = model.Place{X: b.X, Y: b.Y}
+	}
 	spots := w.LandSpots()
 	if len(spots) == 0 {
 		return nil

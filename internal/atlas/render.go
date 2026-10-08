@@ -59,6 +59,7 @@ type painter struct {
 	riverMask  []bool    // где реки и дороги – туда не ставим значки
 	obstacles  []image.Rectangle
 	labels     []label
+	extras     []extra // мельницы у деревень
 	r          rng
 	warpX      *noise
 	warpY      *noise
@@ -172,10 +173,19 @@ func (p *painter) at(x, y int) int { return min(p.H-1, max(0, y))*p.W + min(p.W-
 
 func (p *painter) moveBurgsAshore() {
 	for i := range p.w.Burgs {
-		b := &p.w.Burgs[i]
-		x, y := int(b.X), int(b.Y)
+		p.ashore(&p.w.Burgs[i].X, &p.w.Burgs[i].Y)
+	}
+	for i := range p.w.Sites {
+		p.ashore(&p.w.Sites[i].X, &p.w.Sites[i].Y)
+	}
+}
+
+// ashore сдвигает точку, оказавшуюся в воде или у самой кромки, на ближайшую сушу.
+func (p *painter) ashore(px, py *float64) {
+	{
+		x, y := int(*px), int(*py)
 		if p.kind[p.at(x, y)] == pxLand && p.dWater[p.at(x, y)] > 3 {
-			continue
+			return
 		}
 		best, bd := -1, math.MaxFloat64
 		r := int(p.w.g.s * 2.5)
@@ -191,7 +201,7 @@ func (p *painter) moveBurgsAshore() {
 			}
 		}
 		if best >= 0 {
-			b.X, b.Y = float64(best%p.W), float64(best/p.W)
+			*px, *py = float64(best%p.W), float64(best/p.W)
 		}
 	}
 }

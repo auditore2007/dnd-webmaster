@@ -163,10 +163,10 @@ func (p *painter) labelsLayout() {
 
 func (p *painter) place(l label) bool {
 	box := l.box()
-	if !p.free(box) {
+	if !p.free(box.Inset(-max(0, int(l.size*0.6)-3))) {
 		return false
 	}
-	p.obstacles = append(p.obstacles, box)
+	p.obstacles = append(p.obstacles, box.Inset(-max(3, int(l.size*0.6)))) // надписи не слипаются
 	p.labels = append(p.labels, l)
 	return true
 }
@@ -179,12 +179,14 @@ func (p *painter) burgLabel(b Burg) {
 	}
 	l := label{text: b.Name, font: f, size: size, col: inkColor, alpha: 1, halo: paperColor, haloR: 2, haloA: 0.8}
 	w, a, _ := l.measure()
-	s := p.burgSize(b.Kind)
+	box := p.burgBox(b)
+	midY := float64(box.Min.Y+box.Max.Y)/2 + a*0.35
+	right, left := float64(box.Max.X)+6, float64(box.Min.X)-6-w
 	for _, pos := range [][2]float64{
-		{b.X + s*0.8 + 3, b.Y - s*0.3 + a*0.4},
-		{b.X - s*0.8 - 3 - w, b.Y - s*0.3 + a*0.4},
-		{b.X - w/2, b.Y - s*1.15 - 3},
-		{b.X - w/2, b.Y + s*0.35 + a*0.85},
+		{right, midY},
+		{left, midY},
+		{b.X - w/2, float64(box.Min.Y) - 6},
+		{b.X - w/2, float64(box.Max.Y) + a*0.85 + 4},
 	} {
 		l.x, l.y = pos[0], pos[1]
 		if p.place(l) {
@@ -192,9 +194,9 @@ func (p *painter) burgLabel(b Burg) {
 		}
 	}
 	if b.Kind == "capital" { // столицу подписываем всегда
-		l.x, l.y = b.X+s*0.8+3, b.Y-s*0.3+a*0.4
+		l.x, l.y = right, midY
 		if l.x+w > float64(p.W)-p.frameWidth()-4 {
-			l.x = b.X - s*0.8 - 3 - w
+			l.x = left
 		}
 		p.labels = append(p.labels, l)
 	}

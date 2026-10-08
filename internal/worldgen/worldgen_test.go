@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"heroesbook/internal/atlas"
 	"heroesbook/internal/model"
 )
 
@@ -171,5 +172,13 @@ func TestImportClipsHugeTexts(t *testing.T) {
 	}
 	if len([]rune(title)) > NameLen || len([]rune(places[0].Note)) > NoteLen {
 		t.Errorf("тексты не обрезаны: название %d, заметка %d", len([]rune(title)), len([]rune(places[0].Note)))
+	}
+}
+
+func TestEveryRaceHasCastleSprite(t *testing.T) {
+	for _, race := range AllRaces {
+		if !atlas.HasCastle(race) {
+			t.Errorf("нет картинки замка для расы %s", race)
+		}
 	}
 }

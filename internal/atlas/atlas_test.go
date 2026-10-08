@@ -128,3 +128,24 @@ func TestDashesAndDistance(t *testing.T) {
 		t.Errorf("расстояния: %v", dist)
 	}
 }
+
+func TestSpritesExist(t *testing.T) {
+	imgs := loadSprites()
+	names := []string{"castle", "academy", "market", "temple", "harbor", "tavern", "lodge", "farm", "house", "windmill", "watermill"}
+	for _, xs := range siteSprites {
+		names = append(names, xs...)
+	}
+	for _, n := range names {
+		if _, ok := imgs["buildings/"+n]; !ok {
+			t.Errorf("нет картинки %s", n)
+		}
+	}
+	w := generate(t, 6, "")
+	w.Sites = []Site{{X: 450, Y: 280, Kind: "cave"}, {X: 300, Y: 200, Kind: "неизвестное"}}
+	w.Render(seeded(1))
+	for _, s := range w.Sites {
+		if s.X < 0 || s.X >= 900 || s.Y < 0 || s.Y >= 560 {
+			t.Errorf("дикое место вне карты: %+v", s)
+		}
+	}
+}

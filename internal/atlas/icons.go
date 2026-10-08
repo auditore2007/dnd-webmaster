@@ -24,8 +24,6 @@ var (
 	jungleCol = rgb(46, 104, 56)
 	duneCol   = rgb(196, 160, 98)
 	reedCol   = rgb(70, 96, 70)
-	wallColor = rgb(232, 220, 196)
-	roofColor = rgb(160, 70, 52)
 )
 
 // relief – расставляет значки по сетке со случайным сдвигом, нижние рисуются поверх верхних.
@@ -241,101 +239,6 @@ func (p *painter) reed(x, y, s float64) {
 	for _, dx := range []float64{-0.25, 0, 0.25} {
 		p.c.stroke([]pt{{x + dx*s, y}, {x + dx*s*1.4, y - s*0.6}}, 0.7*p.scale, reedCol, 0.8)
 	}
-}
-
-// burgSize – размер значка поселения.
-func (p *painter) burgSize(kind string) float64 {
-	k := map[string]float64{"capital": 22, "city": 17, "castle": 15, "town": 13, "port": 13, "village": 10}[kind]
-	return k * p.scale
-}
-
-func (p *painter) burgBox(b Burg) image.Rectangle {
-	s := p.burgSize(b.Kind)
-	return image.Rect(int(b.X-s*0.75), int(b.Y-s), int(b.X+s*0.75), int(b.Y+s*0.3))
-}
-
-func (p *painter) burgObstacles() {
-	for _, b := range p.w.Burgs {
-		p.obstacles = append(p.obstacles, p.burgBox(b).Inset(-2))
-	}
-}
-
-func (p *painter) burgs() {
-	for _, b := range p.w.Burgs {
-		s := p.burgSize(b.Kind)
-		col := p.w.States[b.State].Color
-		switch b.Kind {
-		case "capital":
-			p.castle(b.X, b.Y, s, col, true)
-		case "castle":
-			p.castle(b.X, b.Y, s, col, false)
-		case "city":
-			p.house(b.X-s*0.3, b.Y, s*0.6)
-			p.house(b.X+s*0.25, b.Y-s*0.05, s*0.7)
-			p.tower(b.X, b.Y-s*0.1, s*0.75, col)
-		case "town", "port":
-			p.house(b.X-s*0.22, b.Y, s*0.7)
-			p.house(b.X+s*0.25, b.Y+s*0.05, s*0.55)
-		default:
-			p.house(b.X, b.Y, s*0.75)
-		}
-		if b.Kind == "port" || b.Kind == "capital" && p.w.coastal(b.Cell) {
-			p.anchor(b.X+s*0.85, b.Y-s*0.15, s*0.42)
-		}
-	}
-}
-
-func (p *painter) house(x, y, s float64) {
-	w := s * 0.5
-	body := []pt{{x - w, y}, {x - w, y - s*0.5}, {x + w, y - s*0.5}, {x + w, y}}
-	roof := []pt{{x - w*1.2, y - s*0.48}, {x - w*0.2, y - s*1.0}, {x + w*0.2, y - s*1.0}, {x + w*1.2, y - s*0.48}}
-	p.c.fill([][]pt{body}, wallColor, 1)
-	p.c.fill([][]pt{roof}, roofColor, 1)
-	p.c.stroke(append(body, body[0]), 0.8*p.scale, inkColor, 0.9)
-	p.c.stroke(append(roof, roof[0]), 0.8*p.scale, inkColor, 0.9)
-}
-
-func (p *painter) tower(x, y, s float64, flag color.RGBA) {
-	w := s * 0.22
-	body := []pt{{x - w, y}, {x - w, y - s*0.8}, {x + w, y - s*0.8}, {x + w, y}}
-	p.c.fill([][]pt{body}, wallColor, 1)
-	p.c.fill([][]pt{{{x - w*1.3, y - s*0.78}, {x, y - s*1.25}, {x + w*1.3, y - s*0.78}}}, shade(flag, 0.9), 1)
-	p.c.stroke(append(body, body[0]), 0.8*p.scale, inkColor, 0.9)
-	p.c.stroke([]pt{{x - w*1.3, y - s*0.78}, {x, y - s*1.25}, {x + w*1.3, y - s*0.78}}, 0.8*p.scale, inkColor, 0.9)
-}
-
-// castle – стена с зубцами и две башни; у столицы ещё флаг цвета государства.
-func (p *painter) castle(x, y, s float64, col color.RGBA, capital bool) {
-	w := s * 0.55
-	wall := []pt{{x - w, y}, {x - w, y - s*0.45}}
-	for k := 0; k < 5; k++ {
-		x0 := x - w + float64(k)*w*0.4
-		wall = append(wall, pt{x0, y - s*0.52}, pt{x0 + w*0.2, y - s*0.52}, pt{x0 + w*0.2, y - s*0.45}, pt{x0 + w*0.4, y - s*0.45})
-	}
-	wall = append(wall, pt{x + w, y})
-	p.c.fill([][]pt{wall}, wallColor, 1)
-	p.c.stroke(append(wall, wall[0]), 0.9*p.scale, inkColor, 0.95)
-	p.c.fill([][]pt{{{x - s*0.1, y}, {x - s*0.1, y - s*0.2}, {x + s*0.1, y - s*0.2}, {x + s*0.1, y}}}, inkColor, 0.8)
-	p.tower(x-w, y, s*0.85, col)
-	p.tower(x+w, y, s*0.85, col)
-	if capital {
-		p.tower(x, y-s*0.3, s, col)
-		pole := pt{x, y - s*1.55}
-		p.c.stroke([]pt{{x, y - s*1.28}, pole}, 0.9*p.scale, inkColor, 1)
-		p.c.fill([][]pt{{pole, {pole.x + s*0.42, pole.y + s*0.1}, {pole.x, pole.y + s*0.22}}}, col, 1)
-	}
-}
-
-func (p *painter) anchor(x, y, s float64) {
-	ink := rgb(40, 52, 70)
-	p.c.stroke([]pt{{x, y - s}, {x, y + s*0.6}}, 1.1*p.scale, ink, 0.9)
-	p.c.stroke([]pt{{x - s*0.4, y - s*0.55}, {x + s*0.4, y - s*0.55}}, 1.0*p.scale, ink, 0.9)
-	var arc []pt
-	for a := 0.15 * math.Pi; a <= 0.85*math.Pi; a += math.Pi / 12 {
-		arc = append(arc, pt{x + math.Cos(a)*s*0.55, y + math.Sin(a)*s*0.55})
-	}
-	p.c.stroke(arc, 1.1*p.scale, ink, 0.9)
-	p.c.stroke(circle(x, y-s*1.15, s*0.18), 0.9*p.scale, ink, 0.9)
 }
 
 // ships – парусники в открытом море: на морских путях и вдали от берегов.

@@ -285,20 +285,6 @@ func (g Gen) foes(kind string) []model.Foe {
 	return out
 }
 
-// Пределы текстов мест (совпадают с проверкой в приложении): импорт не должен раздувать сохранение.
-const (
-	NameLen = 80
-	NoteLen = 2000
-)
-
-// Clip обрезает строку до n символов.
-func Clip(s string, n int) string {
-	if r := []rune(s); len(r) > n {
-		return string(r[:n])
-	}
-	return s
-}
-
 func dist(a, b *model.Place) float64 { return math.Hypot(a.X-b.X, a.Y-b.Y) }
 
 func cmpF(a, b float64) int {

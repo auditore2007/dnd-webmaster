@@ -48,12 +48,12 @@ export default function MapsView({ guard, rev = 0, chars = [], cat = [], reload,
         {map && <button className="ghost danger" onClick={() => (armed ? guard(async () => { await api.DeleteMap(map.id); setArmed(false); await load('') }) : setArmed(true))} onBlur={() => setArmed(false)}>{armed ? 'Точно удалить?' : 'Удалить карту'}</button>}
       </div>
       <div className="row tight mapgen">
-        {[['world', '🌍 Создать мир'], ['dungeon', '🏰 Создать подземелье'], ['import', '📥 Импорт Azgaar / One Page Dungeon'], ['ai', '🤖 Настройки ИИ']].map(([k, v]) =>
+        {[['world', '🌍 Создать мир'], ['dungeon', '🏰 Создать подземелье']].map(([k, v]) =>
           <button key={k} className="ghost" aria-pressed={panel === k} onClick={() => setPanel(panel === k ? '' : k)}>{v}</button>)}
       </div>
       <MapTools cat={cat} level={level} setLevel={setLevel} guard={guard} onDone={created} panel={panel} setPanel={setPanel} />
       {maps.length === 0
-        ? <p className="empty">Карт пока нет. Создайте мир или подземелье прямо здесь, импортируйте карту из Azgaar или One Page Dungeon – или загрузите свою картинку и разметьте её (вручную или нейросетью).</p>
+        ? <p className="empty">Карт пока нет. Создайте мир или подземелье прямо здесь – или загрузите свою картинку и разметьте её вручную.</p>
         : map && img ? <Viewer key={map.id + ':' + rev} map={map} img={img} guard={guard} reload={() => load(map.id)}
           onMap={onMap} cat={cat} level={level} reloadChars={reload} notify={notify} /> : <p className="hint">Загрузка карты…</p>}
     </section>
@@ -214,7 +214,6 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
           <button className="ghost" title="Жители и задания – в поселениях, враги и добыча – в диких местах (только там, где пусто)" disabled={!places.length}
             onClick={() => work('Населяем…', () => api.PopulateMap(map.id, level, true))}>✨ Населить карту</button>
           <button className="ghost" disabled={!places.length} onClick={() => work('Населяем заново…', () => api.PopulateMap(map.id, level, false))}>🎲 Всё заново</button>
-          <button className="ghost" title="Нейросеть Gemini найдёт на картинке города, таверны, логова и руины" onClick={() => work('Нейросеть смотрит на карту… (до минуты)', () => api.RecognizeMap(map.id, level))}>🤖 Распознать ИИ</button>
           <label className="eq"><input type="checkbox" checked={showPlaces} onChange={(e) => setShowPlaces(e.target.checked)} /> показывать места</label>
           <label className="eq"><input type="checkbox" checked={labels} onChange={(e) => setLabels(e.target.checked)} /> подписи городов</label></>}
       </div>

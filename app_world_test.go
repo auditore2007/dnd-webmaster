@@ -1,12 +1,9 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 
-	"heroesbook/internal/vision"
 )
 
 func TestGenerateWorldAndDungeonMaps(t *testing.T) {
@@ -65,81 +62,5 @@ func TestPlacesEditAndPopulate(t *testing.T) {
 	}
 	if err := a.Undo(); err != nil || len(a.Maps()[0].Places) != n {
 		t.Errorf("отмена должна вернуть место: %v", err)
-	}
-}
-
-type fakeVision struct{ found []vision.Found }
-
-func (f fakeVision) Locate(context.Context, string, []byte, int, int) ([]vision.Found, error) {
-	return f.found, nil
-}
-
-func TestRecognizeMapAddsAndPopulates(t *testing.T) {
-	a := newApp()
-	m, err := a.GenerateDungeon("x", 3, 4, 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.RecognizeMap(m.ID, 3); err == nil || !strings.Contains(err.Error(), "ключ") {
-		t.Errorf("без ключа – понятная ошибка, получено %v", err)
-	}
-	if _, err := a.SetAISettings("AIza-test-key-1234", "", false); err != nil {
-		t.Fatal(err)
-	}
-	old := visionClient
-	defer func() { visionClient = old }()
-	visionClient = func(s aiSettings) interface {
-		Locate(ctx context.Context, mime string, data []byte, w, h int) ([]vision.Found, error)
-	} {
-		if s.GeminiKey != "AIza-test-key-1234" {
-			t.Errorf("ключ не дошёл до клиента: %q", s.GeminiKey)
-		}
-		return fakeVision{[]vision.Found{{Kind: "village", Name: "Ольховка", X: 50, Y: 60}, {Kind: "village", Name: "дубль", X: 52, Y: 61}, {Kind: "lair", Name: "Нора", X: 300, Y: 200}}}
-	}
-	before := len(m.Places)
-	m, err = a.RecognizeMap(m.ID, 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(m.Places) != before+2 {
-		t.Fatalf("ожидалось +2 места (дубль отброшен), стало %d из %d", len(m.Places), before)
-	}
-	for _, p := range m.Places[before:] {
-		if p.Kind == "village" && len(p.NPCs) == 0 {
-			t.Error("найденная деревня должна быть населена")
-		}
-	}
-}
-
-func TestAISettingsNeverExposeKey(t *testing.T) {
-	a := newApp()
-	v, err := a.SetAISettings("AIzaSECRETkey9876", "gemini-test", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, _ := json.Marshal(v)
-	if strings.Contains(string(raw), "SECRET") || !v.HasKey || v.KeyHint != "…9876" || v.Model != "gemini-test" {
-		t.Errorf("настройки для интерфейса: %s", raw)
-	}
-	if v, _ = a.SetAISettings("", "", true); v.HasKey {
-		t.Error("ключ должен удаляться")
-	}
-	if _, err := a.SetAISettings("bad key with spaces", "", false); err == nil {
-		t.Error("ключ с пробелами – ошибка")
-	}
-	if strings.Contains(strings.Join(a.Log(), " "), "SECRET") {
-		t.Error("ключ попал в журнал")
-	}
-}
-
-func TestAIModelNameIsSafe(t *testing.T) {
-	a := newApp()
-	for _, bad := range []string{"x%2F..", "../models", "a b", `x\y`} {
-		if _, err := a.SetAISettings("", bad, false); err == nil {
-			t.Errorf("модель %q должна отклоняться", bad)
-		}
-	}
-	if _, err := a.SetAISettings("", "gemini-3.8-flash", false); err != nil {
-		t.Errorf("обычное имя модели: %v", err)
 	}
 }

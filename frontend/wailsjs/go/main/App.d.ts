@@ -7,8 +7,6 @@ import {rules} from '../models';
 import {treasure} from '../models';
 import {model} from '../models';
 
-export function AISettings():Promise<main.AIView>;
-
 export function AddEffect(arg1:string,arg2:string,arg3:number,arg4:string):Promise<main.CharView>;
 
 export function AddMap(arg1:string,arg2:string):Promise<main.MapInfo>;
@@ -91,10 +89,6 @@ export function GiveLoot(arg1:string,arg2:model.Item,arg3:number):Promise<main.C
 
 export function GiveSpellTemplate(arg1:string,arg2:string):Promise<main.CharView>;
 
-export function ImportAzgaar(arg1:string,arg2:string,arg3:string,arg4:number):Promise<main.MapInfo>;
-
-export function ImportOnePageDungeon(arg1:string,arg2:string,arg3:number):Promise<main.MapInfo>;
-
 export function ItemLibrary():Promise<Array<model.Item>>;
 
 export function LegendaryAction(arg1:string,arg2:string,arg3:string):Promise<main.LegendaryView>;
@@ -114,8 +108,6 @@ export function PopulateMap(arg1:string,arg2:number,arg3:boolean):Promise<main.M
 export function PopulatePlace(arg1:string,arg2:string,arg3:number):Promise<main.MapInfo>;
 
 export function QuickSave():Promise<main.SnapshotInfo>;
-
-export function RecognizeMap(arg1:string,arg2:number):Promise<main.MapInfo>;
 
 export function RemoveEffect(arg1:string,arg2:number):Promise<main.CharView>;
 
@@ -144,8 +136,6 @@ export function SaveMonster(arg1:bestiary.Monster):Promise<bestiary.Monster>;
 export function SaveSnapshot(arg1:string):Promise<void>;
 
 export function SaveSpellTemplate(arg1:model.SpellTemplate):Promise<model.SpellTemplate>;
-
-export function SetAISettings(arg1:string,arg2:string,arg3:boolean):Promise<main.AIView>;
 
 export function SetCoins(arg1:string,arg2:string,arg3:number):Promise<main.CharView>;
 

@@ -104,53 +104,6 @@ func TestDungeonRoomsAndEntrance(t *testing.T) {
 	}
 }
 
-const opdSample = `{"version":"1.2.7","title":"Склеп Безликого","story":"Говорят, здесь спит король.",
-"rects":[{"x":-2,"y":-2,"w":5,"h":4},{"x":0,"y":2,"w":1,"h":3},{"x":-1,"y":5,"w":4,"h":3}],
-"doors":[{"x":0,"y":2,"dir":{"x":0,"y":1},"type":1}],
-"notes":[{"text":"Алтарь с черепами","ref":"1","pos":{"x":0.5,"y":0}},{"text":"Саркофаг","ref":"2","pos":{"x":1,"y":6.5}}],
-"columns":[{"x":-1,"y":-1}],"water":[{"x":2,"y":6}]}`
-
-func TestOnePageDungeonImport(t *testing.T) {
-	title, url, places, err := testGen(2, 2).OnePageDungeon([]byte(opdSample))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if title != "Склеп Безликого" || !strings.HasPrefix(url, "data:image/jpeg") || len(places) != 2 {
-		t.Fatalf("импорт: %q, мест %d", title, len(places))
-	}
-	if !strings.Contains(places[0].Note, "спит король") || !strings.Contains(places[0].Note, "Алтарь") {
-		t.Errorf("предыстория и заметка комнаты: %q", places[0].Note)
-	}
-	if _, _, _, err := testGen(2, 2).OnePageDungeon([]byte(`{"title":"x"}`)); err == nil {
-		t.Error("без комнат – ошибка")
-	}
-}
-
-const azgaarSample = `{"info":{"mapName":"Эльдория","width":1000,"height":500},
-"pack":{"burgs":[{},{"i":1,"name":"Столград","x":500,"y":250,"capital":1,"culture":1,"population":30},
-{"i":2,"name":"Рыбачий","x":100,"y":50,"port":3,"culture":2,"population":1},{"i":3,"name":"Удалённый","x":1,"y":1,"removed":true}],
-"markers":[{"i":0,"type":"inns","icon":"🍻","x":200,"y":100},{"i":1,"type":"dungeons","icon":"🗝️","x":800,"y":400}]}}`
-
-func TestAzgaarImportScalesToImage(t *testing.T) {
-	name, places, err := testGen(4, 3).Azgaar([]byte(azgaarSample), 2000, 1000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "Эльдория" || len(places) != 4 {
-		t.Fatalf("%q: %d мест", name, len(places))
-	}
-	capital := places[0]
-	if capital.Kind != "capital" || capital.X != 1000 || capital.Y != 500 || capital.Race == "" {
-		t.Errorf("столица: %+v", capital)
-	}
-	if places[1].Kind != "port" || places[2].Kind != "tavern" || places[3].Kind != "dungeon" {
-		t.Errorf("виды: %s %s %s", places[1].Kind, places[2].Kind, places[3].Kind)
-	}
-	if _, _, err := testGen(4, 3).Azgaar([]byte(`{"info":{}}`), 10, 10); err == nil {
-		t.Error("без размеров – ошибка")
-	}
-}
-
 func TestNamesForEveryRace(t *testing.T) {
 	g := testGen(1, 1)
 	for _, r := range AllRaces {
@@ -160,18 +113,6 @@ func TestNamesForEveryRace(t *testing.T) {
 		if n := TownName(g.R, r); len([]rune(n)) < 3 {
 			t.Errorf("%s: поселение %q", r, n)
 		}
-	}
-}
-
-func TestImportClipsHugeTexts(t *testing.T) {
-	huge := strings.Repeat("я", 5000)
-	raw := `{"title":"` + huge + `","story":"` + huge + `","rects":[{"x":0,"y":0,"w":3,"h":3}],"notes":[{"text":"` + huge + `","ref":"1","pos":{"x":1,"y":1}}]}`
-	title, _, places, err := testGen(1, 1).OnePageDungeon([]byte(raw))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len([]rune(title)) > NameLen || len([]rune(places[0].Note)) > NoteLen {
-		t.Errorf("тексты не обрезаны: название %d, заметка %d", len([]rune(title)), len([]rune(places[0].Note)))
 	}
 }
 

@@ -126,22 +126,6 @@ export namespace combat {
 
 export namespace main {
 	
-	export class AIView {
-	    hasKey: boolean;
-	    keyHint: string;
-	    model: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new AIView(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.hasKey = source["hasKey"];
-	        this.keyHint = source["keyHint"];
-	        this.model = source["model"];
-	    }
-	}
 	export class CharView {
 	    id: string;
 	    name: string;

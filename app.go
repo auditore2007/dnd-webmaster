@@ -70,7 +70,7 @@ func (a *App) startup(_ context.Context) {
 const seedVersion = 2
 
 // migrate приводит старые сохранения к текущему виду: убирает героев несуществующих систем правил
-// и переносит единственную карту со старыми метками в галерею карт.
+// переносит единственную карту со старыми метками в галерею карт и удаляет ключ Gemini от прежних версий.
 func (a *App) migrate() {
 	kept := a.state.Characters[:0:0]
 	dropped := 0
@@ -96,6 +96,9 @@ func (a *App) migrate() {
 			a.state.Maps = append(a.state.Maps, m)
 			a.state.Pins = nil
 		}
+	}
+	if bs, ok := a.store.(blobStore); ok {
+		_ = bs.SaveBlob("settings", "") // ключ Gemini от удалённого распознавания карт больше не хранится
 	}
 }
 

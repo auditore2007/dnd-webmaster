@@ -85,7 +85,6 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
   const [busy, setBusy] = useState('')
   const places = map.places ?? []
   const selected = places.find((p) => p.id === sel)
-  const work = (label, f) => guard(async () => { setBusy(label); try { onMap(await f()) } finally { setBusy('') } })
   const box = useRef(null)
   const im = useRef(null)
   const fogc = useRef(null)
@@ -239,9 +238,6 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
       </div>
       <div className="row tight">
         {busy ? <span className="busy"><span className="spinner">🎲</span> {busy}</span> : <>
-          <button className="ghost" title="Жители и задания – в поселениях, враги и добыча – в диких местах (только там, где пусто)" disabled={!places.length}
-            onClick={() => work('Населяем…', () => api.PopulateMap(map.id, level, true))}>✨ Населить карту</button>
-          <button className="ghost" disabled={!places.length} onClick={() => work('Населяем заново…', () => api.PopulateMap(map.id, level, false))}>🎲 Всё заново</button>
           {parentPlace && <button className="ghost" aria-pressed={about} onClick={() => { setSel(''); setAbout(!about) }}>📜 О месте: {parentPlace.name}</button>}
           <label className="eq"><input type="checkbox" checked={showPlaces} onChange={(e) => setShowPlaces(e.target.checked)} /> показывать места</label>
           <label className="eq"><input type="checkbox" checked={labels} onChange={(e) => setLabels(e.target.checked)} /> подписи городов</label></>}

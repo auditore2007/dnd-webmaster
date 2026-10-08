@@ -307,23 +307,6 @@ func (a *App) RemovePlace(mapID, placeID string) (MapInfo, error) {
 	return a.mapInfo(*m), a.persist()
 }
 
-// PopulateMap населяет места карты: onlyEmpty – только те, где ещё пусто; иначе всё заново.
-func (a *App) PopulateMap(mapID string, level int, onlyEmpty bool) (MapInfo, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	m, err := a.mapAt(mapID)
-	if err != nil {
-		return MapInfo{}, err
-	}
-	if len(m.Places) == 0 {
-		return MapInfo{}, errors.New("на карте нет мест – поставьте их вручную или создайте карту заново")
-	}
-	a.checkpoint()
-	m.Places = a.gen(randomSeed(0), level, nil).Populate(m.Places, onlyEmpty)
-	a.note("Карта «%s» населена: мест %d", m.Name, len(m.Places))
-	return a.mapInfo(*m), a.persist()
-}
-
 // PopulatePlace заново населяет одно место.
 func (a *App) PopulatePlace(mapID, placeID string, level int) (MapInfo, error) {
 	a.mu.Lock()

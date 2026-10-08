@@ -47,7 +47,7 @@ func TestPlacesEditAndPopulate(t *testing.T) {
 	if _, err := a.AddPlace(m.ID, 1, 1, "космодром", ""); err == nil {
 		t.Error("неизвестный вид места – ошибка")
 	}
-	m, err = a.PopulateMap(m.ID, 3, true)
+	m, err = a.PopulatePlace(m.ID, p.ID, 3)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -21,6 +21,7 @@ type SiteOpts struct {
 	Biome    string  // grass, forest, snow, desert, swamp, jungle
 	WaterDir float64 // с какой стороны вода (радианы, 0 – восток), если Water
 	Water    bool    // рядом море или озеро
+	Rooms    int     // сколько комнат в подземелье
 	R        Rand
 }
 
@@ -28,6 +29,7 @@ type SiteOpts struct {
 type SitePlace struct {
 	X, Y       float64
 	Kind, Name string
+	Note       string
 }
 
 // SiteMap – готовая карта локации; Grid – размер клетки боевой сетки в пикселях (0 – без сетки).
@@ -60,6 +62,9 @@ func Location(o SiteOpts) (*SiteMap, error) {
 		return nil, errors.New("atlas: нет генератора случайностей")
 	}
 	gen, w, h, grid := siteKind(o.Kind)
+	if o.Kind == "dungeon" {
+		w, h = dungeonSize(o.Rooms)
+	}
 	s := &site{o: o, W: w, H: h, r: rng{o.R}}
 	s.c = canvas{image.NewRGBA(image.Rect(0, 0, w, h))}
 	s.n1, s.n2 = newNoise(s.r), newNoise(s.r)
@@ -90,8 +95,10 @@ func siteKind(kind string) (func(*site), int, int, int) {
 		return (*site).cave, 2000, 1500, 40
 	case "tavern", "temple", "shop", "smithy":
 		return (*site).interior, 1400, 1000, 40
+	case "dungeon":
+		return (*site).dungeon, 0, 0, 40
 	}
-	return (*site).outdoor, 2000, 1400, 0 // руины, лагерь, святилище, башня, лес, горы, болото, озеро, подземелье-вход
+	return (*site).outdoor, 2000, 1400, 0 // руины, лагерь, святилище, башня, лес, горы, болото, озеро
 }
 
 func (s *site) addPlace(x, y float64, kind, name string) {

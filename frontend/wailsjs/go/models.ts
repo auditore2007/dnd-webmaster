@@ -232,6 +232,46 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class Encounter {
+	    day: number;
+	    x: number;
+	    y: number;
+	    terrain: string;
+	    text: string;
+	    foes: model.Foe[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Encounter(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.day = source["day"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.terrain = source["terrain"];
+	        this.text = source["text"];
+	        this.foes = this.convertValues(source["foes"], model.Foe);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class EncounterView {
 	    encounter?: combat.Encounter;
 	    result?: model.AttackResult;
@@ -244,6 +284,46 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.encounter = this.convertValues(source["encounter"], combat.Encounter);
 	        this.result = this.convertValues(source["result"], model.AttackResult);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Journey {
+	    path: travel.Point[];
+	    miles: number;
+	    days: number;
+	    legs: travel.Leg[];
+	    pace: string;
+	    encounters: Encounter[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Journey(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = this.convertValues(source["path"], travel.Point);
+	        this.miles = source["miles"];
+	        this.days = source["days"];
+	        this.legs = this.convertValues(source["legs"], travel.Leg);
+	        this.pace = source["pace"];
+	        this.encounters = this.convertValues(source["encounters"], Encounter);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -306,6 +386,7 @@ export namespace main {
 	    places: model.Place[];
 	    parent: string;
 	    parentPlace: string;
+	    party?: store.Point;
 	
 	    static createFrom(source: any = {}) {
 	        return new MapInfo(source);
@@ -322,6 +403,7 @@ export namespace main {
 	        this.places = this.convertValues(source["places"], model.Place);
 	        this.parent = source["parent"];
 	        this.parentPlace = source["parentPlace"];
+	        this.party = this.convertValues(source["party"], store.Point);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1532,6 +1614,20 @@ export namespace store {
 	        this.x = source["x"];
 	        this.y = source["y"];
 	        this.text = source["text"];
+	    }
+	}
+	export class Point {
+	    x: number;
+	    y: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Point(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.x = source["x"];
+	        this.y = source["y"];
 	    }
 	}
 

@@ -14,6 +14,12 @@ import (
 	"heroesbook/internal/model"
 )
 
+// Point – точка на картинке карты.
+type Point struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
 type Pin struct {
 	X    float64 `json:"x"`
 	Y    float64 `json:"y"`
@@ -30,6 +36,7 @@ type MapMeta struct {
 	Places      []model.Place `json:"places"`                // места: поселения, логова, NPC и задания
 	Parent      string        `json:"parent,omitempty"`      // карта, с которой открыта эта (карта локации)
 	ParentPlace string        `json:"parentPlace,omitempty"` // место на родительской карте
+	Party       *Point        `json:"party,omitempty"`       // где стоит отряд (путешествия по карте мира)
 }
 
 // Snapshot – именованная копия игры. Данные лежат в отдельном файле snap-<id>;

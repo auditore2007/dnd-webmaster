@@ -18,11 +18,14 @@ func testGen(seed int64, level int, races ...string) Gen {
 
 func TestWorldIsReproducibleAndSettlesEveryRace(t *testing.T) {
 	races := []string{"human", "elf", "dwarf", "lizardfolk"}
-	url1, places1, err := testGen(11, 3, races...).World(WorldOpts{W: 800, H: 500})
+	url1, places1, terrain, err := testGen(11, 3, races...).World(WorldOpts{W: 800, H: 500})
 	if err != nil {
 		t.Fatal(err)
 	}
-	url2, places2, _ := testGen(11, 3, races...).World(WorldOpts{W: 800, H: 500})
+	url2, places2, _, _ := testGen(11, 3, races...).World(WorldOpts{W: 800, H: 500})
+	if !strings.HasPrefix(terrain, "travel1;") {
+		t.Errorf("сетка местности: %.20s", terrain)
+	}
 	if url1 != url2 || len(places1) != len(places2) {
 		t.Error("один seed – одна и та же карта")
 	}
@@ -42,7 +45,7 @@ func TestWorldIsReproducibleAndSettlesEveryRace(t *testing.T) {
 			t.Errorf("в поселении %s никто не живёт", p.Name)
 		}
 	}
-	if _, _, err := testGen(1, 1).World(WorldOpts{W: 10, H: 10}); err == nil {
+	if _, _, _, err := testGen(1, 1).World(WorldOpts{W: 10, H: 10}); err == nil {
 		t.Error("слишком маленькая карта должна отклоняться")
 	}
 }
@@ -93,15 +96,20 @@ func TestLairsGetBossesUpToPartyLevel(t *testing.T) {
 }
 
 func TestDungeonRoomsAndEntrance(t *testing.T) {
-	url, places, err := testGen(5, 3).Dungeon(8)
+	url, places, grid, err := testGen(5, 3).Dungeon("Склеп", 8)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(url, "data:image/jpeg") || len(places) < 4 {
-		t.Fatalf("подземелье: %d комнат", len(places))
+	if !strings.HasPrefix(url, "data:image/jpeg") || len(places) < 4 || grid != 40 {
+		t.Fatalf("подземелье: %d комнат, сетка %d", len(places), grid)
 	}
-	if places[0].Name != entryName || len(places[0].Foes) != 0 {
+	if places[0].Name != "Вход" || len(places[0].Foes) != 0 {
 		t.Errorf("у входа тихо: %+v", places[0])
+	}
+	for _, p := range places {
+		if p.Note == "" {
+			t.Errorf("у комнаты %s нет описания", p.Name)
+		}
 	}
 }
 

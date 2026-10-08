@@ -105,6 +105,8 @@ export function NextTurn():Promise<combat.Encounter>;
 
 export function OpenPlace(arg1:string,arg2:string,arg3:number):Promise<main.MapInfo>;
 
+export function PlanJourney(arg1:string,arg2:number,arg3:number,arg4:string):Promise<main.Journey>;
+
 export function PopulatePlace(arg1:string,arg2:string,arg3:number):Promise<main.MapInfo>;
 
 export function QuickSave():Promise<main.SnapshotInfo>;
@@ -145,6 +147,8 @@ export function SetFog(arg1:string,arg2:string):Promise<void>;
 
 export function SetMapGrid(arg1:string,arg2:number,arg3:number):Promise<void>;
 
+export function SetParty(arg1:string,arg2:number,arg3:number):Promise<main.MapInfo>;
+
 export function Snapshots():Promise<Array<main.SnapshotInfo>>;
 
 export function SpawnInBattle(arg1:string,arg2:number):Promise<combat.Encounter>;
@@ -158,6 +162,8 @@ export function StartEncounter(arg1:Array<string>):Promise<combat.Encounter>;
 export function ToggleReaction(arg1:string):Promise<combat.Encounter>;
 
 export function TransferItem(arg1:string,arg2:string,arg3:number,arg4:number):Promise<Array<main.CharView>>;
+
+export function Travel(arg1:string,arg2:number,arg3:number,arg4:string,arg5:number):Promise<main.Journey>;
 
 export function Undo():Promise<void>;
 

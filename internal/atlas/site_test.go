@@ -7,7 +7,7 @@ import (
 
 func TestEveryPlaceKindHasLocationMap(t *testing.T) {
 	kinds := []string{"capital", "city", "town", "village", "port", "castle", "cave", "mine", "lair", "tavern", "temple",
-		"shop", "smithy", "ruins", "camp", "shrine", "tower", "forest", "mountain", "swamp", "lake", "other"}
+		"shop", "smithy", "ruins", "camp", "shrine", "tower", "forest", "mountain", "swamp", "lake", "other", "dungeon"}
 	for i, k := range kinds {
 		m, err := Location(SiteOpts{Kind: k, Name: "Место", Biome: []string{"grass", "snow", "desert", "forest", "swamp", "jungle"}[i%6],
 			Water: i%3 == 0, WaterDir: 1, R: seeded(uint64(i + 1))})
@@ -23,7 +23,7 @@ func TestEveryPlaceKindHasLocationMap(t *testing.T) {
 				t.Errorf("%s: место вне карты или без имени: %+v", k, p)
 			}
 		}
-		battle := slices.Contains([]string{"cave", "mine", "lair", "tavern", "temple", "shop", "smithy"}, k)
+		battle := slices.Contains([]string{"cave", "mine", "lair", "tavern", "temple", "shop", "smithy", "dungeon"}, k)
 		if battle != (m.Grid > 0) {
 			t.Errorf("%s: сетка %d", k, m.Grid)
 		}

@@ -34,8 +34,6 @@ func (s *site) outdoor() {
 		s.stoneCircle(cx, cy)
 	case "tower":
 		s.wizardTower(cx, cy)
-	case "dungeon":
-		s.ruins(cx, cy)
 	default:
 		s.addPlace(cx, cy, s.o.Kind, KindTitle(s.o.Kind))
 	}

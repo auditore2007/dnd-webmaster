@@ -308,8 +308,9 @@ type MapInfo struct {
 	HasFog bool          `json:"hasFog"`
 	Places []model.Place `json:"places"`
 	// карта локации: с какой карты и какого места на ней она открыта
-	Parent      string `json:"parent"`
-	ParentPlace string `json:"parentPlace"`
+	Parent      string       `json:"parent"`
+	ParentPlace string       `json:"parentPlace"`
+	Party       *store.Point `json:"party"`
 }
 
 func (a *App) mapInfo(m store.MapMeta) MapInfo {
@@ -320,7 +321,7 @@ func (a *App) mapInfo(m store.MapMeta) MapInfo {
 		}
 	}
 	return MapInfo{m.ID, m.Name, append([]store.Pin{}, m.Pins...), m.Grid, max(5, m.Feet), has,
-		append([]model.Place{}, model.ClonePlaces(m.Places)...), m.Parent, m.ParentPlace}
+		append([]model.Place{}, model.ClonePlaces(m.Places)...), m.Parent, m.ParentPlace, clonePoint(m.Party)}
 }
 
 func (a *App) Maps() []MapInfo {
@@ -460,6 +461,7 @@ func (a *App) dropMap(id string) {
 	if bs, ok := a.store.(blobStore); ok {
 		_ = bs.SaveBlob("map-"+id, "") // картинка удаляется; отмена вернёт карту без картинки
 		_ = bs.SaveBlob("fog-"+id, "")
+		_ = bs.SaveBlob("travel-"+id, "")
 	}
 	if p := a.mapIdx(m.Parent); p >= 0 {
 		for k := range a.state.Maps[p].Places {
@@ -477,4 +479,12 @@ func (a *App) dropMap(id string) {
 	for _, k := range kids {
 		a.dropMap(k)
 	}
+}
+
+func clonePoint(p *store.Point) *store.Point {
+	if p == nil {
+		return nil
+	}
+	c := *p
+	return &c
 }

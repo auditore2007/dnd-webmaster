@@ -78,6 +78,9 @@ const INSIDE = ['tavern', 'temple', 'shop', 'smithy', 'dungeon', 'castle']
 function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notify, parentMap, parentPlace, onOpenMap }) {
   const [sel, setSel] = useState('')
   const [about, setAbout] = useState(false)
+  const world = !map.parent && !(map.grid > 0) // путешествовать можно по карте мира
+  const [trip, setTrip] = useState(null)       // маршрут или пройденный путь: { ...journey, dest:[x,y], done }
+  const [pace, setPace] = useState('normal')
   const [placeKind, setPlaceKind] = useState('tavern')
   const [placeName, setPlaceName] = useState('')
   const [showPlaces, setShowPlaces] = useState(true)
@@ -198,10 +201,33 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
     setBusy(p.map ? `Открываем «${p.name}»…` : `Рисуем карту «${p.name}»…`)
     try { onOpenMap(await api.OpenPlace(map.id, p.id, level)) } finally { setBusy('') }
   })
+  // ----- путешествия -----
+  const planTo = (x, y, pc = pace) => guard(async () => {
+    if (!map.party) { onMap(await api.SetParty(map.id, x, y)); setTrip(null); return }
+    setTrip({ ...(await api.PlanJourney(map.id, x, y, pc)), dest: [x, y], done: false })
+  })
+  const go = () => guard(async () => {
+    setBusy('Отряд в пути…')
+    try {
+      const j = await api.Travel(map.id, trip.dest[0], trip.dest[1], pace, level)
+      setTrip({ ...j, dest: trip.dest, done: true })
+      await reload()
+      notify?.(`Отряд прошёл ${Math.round(j.miles)} миль, встреч в пути: ${j.encounters.length}`)
+    } finally { setBusy('') }
+  })
+  const moveParty = () => guard(async () => { onMap(await api.SetParty(map.id, trip.dest[0], trip.dest[1])); setTrip(null) })
+  const toTable = (foes) => guard(async () => {
+    for (const f of foes) await api.AddMonster(f.id, f.count)
+    await reloadChars()
+    notify?.(`На стол: ${foes.map((f) => `${f.name} ×${f.count}`).join(', ')}`)
+  })
+
   // pick – клик по месту: открыть его карту; с Shift (или если своей карты не бывает) – показать карточку.
+  // В режиме путешествия – проложить путь к месту.
   const pick = (id, e) => {
     const p = places.find((x) => x.id === id)
-    if (p && canOpen(p) && !e?.shiftKey) openPlace(p)
+    if (p && tool === 'travel') planTo(p.x, p.y)
+    else if (p && canOpen(p) && !e?.shiftKey) openPlace(p)
     else select(id)
   }
   const select = (id, pan) => {
@@ -216,6 +242,10 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
       const [x, y] = toImg(e)
       guard(async () => { const m = await api.AddPlace(map.id, x, y, placeKind, placeName.trim()); onMap(m); setPlaceName(''); setSel(m.places.at(-1)?.id ?? '') })
     }
+    if (tool === 'travel' && pts.current.size === 1 && s && Math.hypot(e.clientX - s[0], e.clientY - s[1]) < 5) {
+      const [x, y] = toImg(e)
+      planTo(x, y)
+    }
     if (tool === 'pin' && pts.current.size === 1 && s && Math.hypot(e.clientX - s[0], e.clientY - s[1]) < 5) {
       const [x, y] = toImg(e)
       guard(async () => { await api.AddPin(map.id, x, y, text.trim() || 'Метка'); await reload() })
@@ -223,13 +253,14 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
     if (drag.current.paint && dirty.current) saveFog()
     pts.current.delete(e.pointerId); drag.current.last = 0; drag.current.paint = false
   }
-  const cursor = tool === 'pan' ? 'grab' : tool === 'pin' || tool === 'ruler' || tool === 'place' ? 'crosshair' : 'cell'
+  const cursor = tool === 'pan' ? 'grab' : tool === 'pin' || tool === 'ruler' || tool === 'place' || tool === 'travel' ? 'crosshair' : 'cell'
   const T = (k, ic, label) => <button className="ghost" aria-pressed={tool === k} onClick={() => setTool(k)} title={label}><Icon n={ic} /> {label}</button>
   const fogged = fog && fogSize
   return (
     <>
       <div className="row tight tools">
         {T('pan', 'map', 'Двигать')}{T('place', 'pin', 'Места')}{T('pin', 'pin', 'Метки')}{T('ruler', 'ruler', 'Линейка')}
+        {world && T('travel', 'boots', 'Путешествие')}
         {fog && <>{T('reveal', 'fog', 'Открыть')}{T('hide', 'fog', 'Закрыть')}</>}
         <button className="ghost" onClick={() => zoom(1.25)} aria-label="Приблизить">+</button>
         <button className="ghost" onClick={() => zoom(0.8)} aria-label="Отдалить">−</button>
@@ -243,6 +274,9 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
           <label className="eq"><input type="checkbox" checked={labels} onChange={(e) => setLabels(e.target.checked)} /> подписи городов</label></>}
       </div>
       {tool === 'place' && <PlaceTool kind={placeKind} setKind={setPlaceKind} name={placeName} setName={setPlaceName} />}
+      {tool === 'travel' && <TripPanel map={map} trip={trip} pace={pace} busy={busy}
+        setPace={(p) => { setPace(p); if (trip && !trip.done) planTo(trip.dest[0], trip.dest[1], p) }}
+        go={go} moveParty={moveParty} close={() => setTrip(null)} toTable={toTable} />}
       {tool === 'pin' && <div className="row tight"><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Подпись метки, затем клик по карте" aria-label="Подпись метки" /></div>}
       {(tool === 'reveal' || tool === 'hide') && <div className="row tight"><label className="inl">Кисть <input type="range" min="10" max="300" value={brush} onChange={(e) => setBrush(+e.target.value)} /> {brush}</label>
         <button className="ghost" onClick={() => fogAll(true)}>Открыть всё</button><button className="ghost" onClick={() => fogAll(false)}>Закрыть всё</button></div>}
@@ -276,6 +310,12 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
           {fogged && <canvas ref={fogc} className="fogc" data-testid="fog" width={fogSize.w} height={fogSize.h} style={{ width: dim.w, height: dim.h, opacity: player ? 1 : 0.55 }} />}
           {ruler && <svg className="rulersvg" width={dim?.w} height={dim?.h}><line x1={ruler[0]} y1={ruler[1]} x2={ruler[2]} y2={ruler[3]} stroke="#ffd34d" strokeWidth={3 / v.k} strokeLinecap="round" />
             <circle cx={ruler[0]} cy={ruler[1]} r={5 / v.k} fill="#ffd34d" /><circle cx={ruler[2]} cy={ruler[3]} r={5 / v.k} fill="#ffd34d" /></svg>}
+          {trip && <svg className="rulersvg" width={dim?.w} height={dim?.h}>
+            <polyline points={trip.path.map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke={trip.done ? '#7fd36b' : '#ffd34d'}
+              strokeWidth={4 / v.k} strokeDasharray={`${12 / v.k} ${8 / v.k}`} strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx={trip.dest[0]} cy={trip.dest[1]} r={8 / v.k} fill="#ffd34d" stroke="#000" strokeWidth={1.5 / v.k} /></svg>}
+          {trip?.done && trip.encounters.map((en, i) => <div className="encmark" key={i} style={{ left: en.x, top: en.y }} title={`День ${en.day}: ${en.text}`}>⚔️</div>)}
+          {map.party && <div className="party" style={{ left: map.party.x, top: map.party.y }} title="Отряд">🛡️</div>}
           {map.pins.map((p, i) => <div className="pin" key={`${i}:${p.x}:${p.y}`} style={{ left: p.x, top: p.y }}><span>{p.text}</span>
             <button aria-label={`Удалить метку ${p.text}`} onClick={() => guard(async () => { await api.RemovePin(map.id, i); await reload() })}>✕</button></div>)}
           {showPlaces && places.map((p) => <PlaceMarker key={p.id} p={p} selected={p.id === sel} onSelect={pick} labels={labels} opens={canOpen(p)} />)}
@@ -283,5 +323,39 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
       </div>
       </div>
     </>
+  )
+}
+
+const PACES = [['slow', 'Медленно (18 миль/день, можно красться)'], ['normal', 'Обычно (24 мили/день)'], ['fast', 'Быстро (30 миль/день, −5 к пассивной Внимательности)']]
+
+const daysText = (d) => (d < 1 ? `${Math.round(d * 8)} ч` : `${+d.toFixed(2)} дн.`)
+
+/** TripPanel – путешествие: куда идёт отряд, сколько миль и дней, по какой местности; после похода – встречи в пути. */
+function TripPanel({ map, trip, pace, setPace, busy, go, moveParty, close, toTable }) {
+  if (!map.party) return <p className="hint">🛡️ Щёлкните по карте, чтобы поставить отряд.</p>
+  if (!trip) return <p className="hint">🛡️ Щёлкните по месту или точке на карте – отряд проложит путь по суше: по дорогам быстрее, через леса, болота и горы медленнее.</p>
+  return (
+    <div className="trip">
+      <div className="row tight">
+        <b>📏 {Math.round(trip.miles)} миль · ⏱ {daysText(trip.days)}</b>
+        <select aria-label="Темп" value={pace} onChange={(e) => setPace(e.target.value)} disabled={trip.done}>{PACES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+        <small>{trip.legs.map((l) => `${l.terrain} ${Math.round(l.miles)}`).join(' · ')} миль</small>
+      </div>
+      {!trip.done ? <div className="row tight">
+        {busy ? <span className="busy"><span className="spinner">🎲</span> {busy}</span>
+          : <button className="primary small" onClick={go}>🚶 Отправиться</button>}
+        <button className="ghost small" onClick={moveParty}>📍 Просто переставить отряд</button>
+        <button className="ghost small" onClick={close}>Отмена</button>
+      </div> : <>
+        <p>{trip.encounters.length ? `Отряд дошёл. Встречи в пути: ${trip.encounters.length}` : 'Отряд дошёл без происшествий.'}</p>
+        {trip.encounters.map((en, i) => <div className="quest" key={i}>
+          <b>День {en.day} · {en.terrain}</b>
+          <p>{en.text}</p>
+          <div className="chips">{en.foes.map((f, k) => <span className="chip bad" key={k}>{f.name} ×{f.count} <small>CR {f.cr}</small></span>)}</div>
+          <button className="primary small" onClick={() => toTable(en.foes)}>Выставить на стол</button>
+        </div>)}
+        <button className="ghost small" onClick={close}>Закрыть</button>
+      </>}
+    </div>
   )
 }

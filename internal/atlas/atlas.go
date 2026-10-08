@@ -8,6 +8,8 @@ import (
 	"image/color"
 	"math"
 	"slices"
+
+	"heroesbook/internal/travel"
 )
 
 // Terrain – местность клетки для расселения рас и диких мест.
@@ -72,6 +74,7 @@ type World struct {
 	Roads  [][]int // пути по клеткам
 	Sea    [][]int // морские пути
 	score  []float64
+	travel *travel.Grid
 }
 
 // State – государство одной расы.

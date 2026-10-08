@@ -53,10 +53,11 @@ type WorldOpts struct {
 	Template string // шаблон рельефа (atlas.Templates); пусто – случайный
 }
 
-// World рисует карту мира и возвращает её картинку (data:URL) и места (поселения рас и дикие места) с населением.
-func (g Gen) World(o WorldOpts) (string, []model.Place, error) {
+// World рисует карту мира и возвращает её картинку (data:URL), места (поселения рас и дикие места) с населением
+// и сетку местности для путешествий (travel.Grid.Encode).
+func (g Gen) World(o WorldOpts) (url string, places []model.Place, terrain string, err error) {
 	if o.W < 400 || o.H < 300 || o.W > 4000 || o.H > 3000 {
-		return "", nil, errors.New("размер карты: от 400×300 до 4000×3000")
+		return "", nil, "", errors.New("размер карты: от 400×300 до 4000×3000")
 	}
 	names := map[string]bool{}
 	var peoples []atlas.People
@@ -71,23 +72,23 @@ func (g Gen) World(o WorldOpts) (string, []model.Place, error) {
 	w, err := atlas.Generate(atlas.Opts{W: o.W, H: o.H, Template: o.Template, Title: o.Title, SeaName: pick(g.R, seaNames),
 		Peoples: peoples, R: g.R})
 	if err != nil {
-		return "", nil, err
+		return "", nil, "", err
 	}
 	wild := g.wilds(w)
 	for _, p := range wild {
 		w.Sites = append(w.Sites, atlas.Site{X: p.X, Y: p.Y, Kind: p.Kind})
 	}
 	img := w.Render(g.R)
-	places := g.burgPlaces(w) // после отрисовки: прибрежные поселения могли сдвинуться на сушу
+	places = g.burgPlaces(w) // после отрисовки: прибрежные поселения могли сдвинуться на сушу
 	for i := range wild {
 		wild[i].X, wild[i].Y = math.Round(w.Sites[i].X), math.Round(w.Sites[i].Y)
 	}
 	places = append(places, wild...)
-	url, err := canvas{img}.dataURL(94)
+	url, err = canvas{img}.dataURL(94)
 	if err != nil {
-		return "", nil, err
+		return "", nil, "", err
 	}
-	return url, g.Populate(places, false), nil
+	return url, g.Populate(places, false), w.Travel().Encode(), nil
 }
 
 // uniqueTown – название поселения, не повторяющее уже выданные (после 10 попыток – какое есть).

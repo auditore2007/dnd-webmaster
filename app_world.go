@@ -115,21 +115,45 @@ func (a *App) GenerateWorld(name string, seed int, races []string, level int, si
 		return MapInfo{}, fmt.Errorf("нет шаблона рельефа %q", template)
 	}
 	title := cmpStr(name, "Новый мир")
-	url, places, err := g.World(worldgen.WorldOpts{W: dim[0], H: dim[1], Title: title, Template: template})
+	url, places, terrain, err := g.World(worldgen.WorldOpts{W: dim[0], H: dim[1], Title: title, Template: template})
 	if err != nil {
 		return MapInfo{}, err
 	}
-	return a.addGeneratedMap(title, url, places)
+	m, err := a.addGeneratedMap(title, url, places)
+	if err != nil {
+		return MapInfo{}, err
+	}
+	if bs, ok := a.store.(blobStore); ok {
+		_ = bs.SaveBlob("travel-"+m.ID, terrain) // без сетки путешествия всё равно работают – по цветам картинки
+	}
+	return m, nil
 }
 
 // GenerateDungeon рисует подземелье из rooms комнат с ловушками, тайниками и врагами под уровень группы.
 func (a *App) GenerateDungeon(name string, seed, rooms, level int) (MapInfo, error) {
 	g := a.gen(randomSeed(seed), level, nil)
-	url, places, err := g.Dungeon(rooms)
+	name = cmpStr(name, "Подземелье")
+	url, places, grid, err := g.Dungeon(name, rooms)
 	if err != nil {
 		return MapInfo{}, err
 	}
-	return a.addGeneratedMap(cmpStr(name, "Подземелье"), url, places)
+	m, err := a.addGeneratedMap(name, url, places)
+	if err != nil {
+		return MapInfo{}, err
+	}
+	return a.setGrid(m, grid)
+}
+
+// setGrid ставит боевую сетку (клетка 5 футов) только что созданной карте.
+func (a *App) setGrid(m MapInfo, grid int) (MapInfo, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	i := a.mapIdx(m.ID)
+	if i < 0 || grid <= 0 {
+		return m, nil
+	}
+	a.state.Maps[i].Grid, a.state.Maps[i].Feet = grid, 5
+	return a.mapInfo(a.state.Maps[i]), a.persist()
 }
 
 // ---------- карты локаций ----------
@@ -193,8 +217,8 @@ func clipRunes(s string, n int) string {
 	return s
 }
 
-// pixels – доступ к цветам картинки карты (data:URL) по координатам.
-func pixels(dataURL string) (func(x, y int) (r, g, b uint8, ok bool), error) {
+// decodeImage – картинка карты из data:URL.
+func decodeImage(dataURL string) (image.Image, error) {
 	_, body, ok := strings.Cut(dataURL, ",")
 	if !ok {
 		return nil, errors.New("у карты нет картинки")
@@ -204,6 +228,12 @@ func pixels(dataURL string) (func(x, y int) (r, g, b uint8, ok bool), error) {
 		return nil, err
 	}
 	img, _, err := image.Decode(bytes.NewReader(raw))
+	return img, err
+}
+
+// pixels – доступ к цветам картинки карты (data:URL) по координатам.
+func pixels(dataURL string) (func(x, y int) (r, g, b uint8, ok bool), error) {
+	img, err := decodeImage(dataURL)
 	if err != nil {
 		return nil, err
 	}

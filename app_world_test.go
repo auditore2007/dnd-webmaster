@@ -112,3 +112,44 @@ func TestOpenPlaceMakesLocationMapOnce(t *testing.T) {
 		t.Errorf("с картой мира удаляются и карты её мест, осталось %d", n)
 	}
 }
+
+func TestPartyTravelsAcrossWorld(t *testing.T) {
+	a := newApp()
+	w, err := a.GenerateWorld("Мир", 9, []string{"human", "elf"}, 3, "small", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	from, to := w.Places[0], w.Places[1]
+	if _, err := a.PlanJourney(w.ID, to.X, to.Y, "normal"); err == nil {
+		t.Error("без отряда маршрута нет")
+	}
+	if w, err = a.SetParty(w.ID, from.X, from.Y); err != nil || w.Party == nil {
+		t.Fatalf("отряд: %v", err)
+	}
+	plan, err := a.PlanJourney(w.ID, to.X, to.Y, "normal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Miles <= 0 || plan.Days <= 0 || len(plan.Path) < 2 || len(plan.Legs) == 0 {
+		t.Fatalf("маршрут: %+v", plan)
+	}
+	j, err := a.Travel(w.ID, to.X, to.Y, "fast", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if j.Days > plan.Days {
+		t.Error("быстрым темпом не дольше")
+	}
+	for _, e := range j.Encounters {
+		if e.Day < 1 || len(e.Foes) == 0 || e.Text == "" {
+			t.Errorf("встреча: %+v", e)
+		}
+	}
+	m := a.Maps()[0]
+	if m.Party == nil || m.Party.X != to.X || m.Party.Y != to.Y {
+		t.Errorf("отряд должен прийти: %+v", m.Party)
+	}
+	if err := a.DeleteMap(w.ID); err != nil {
+		t.Fatal(err)
+	}
+}

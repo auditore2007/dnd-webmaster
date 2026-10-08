@@ -5,6 +5,8 @@ import (
 	"image/color"
 	"math"
 	"slices"
+
+	"heroesbook/internal/travel"
 )
 
 // Отрисовка в стиле иллюстрированного атласа: мягкая заливка биомов с отмывкой рельефа, береговые «волны»,
@@ -54,6 +56,7 @@ type painter struct {
 	dWater      []float32 // от суши до воды
 	riverMask   []bool    // где реки, дороги и поля – туда не ставим значки рельефа
 	roadOrRiver []bool    // только реки и дороги – туда не ставим постройки
+	roadPx      []bool    // только дороги – для путешествий
 	obstacles   []image.Rectangle
 	labels      []label
 	extras      []extra // мельницы у деревень
@@ -87,6 +90,7 @@ func (w *World) Render(r Rand) *image.RGBA {
 	p.ships()
 	p.drawLabels()
 	p.decor()
+	w.travel = p.travelGrid(travelStep)
 	p.clouds()
 	p.paper()
 	return p.c.img
@@ -160,7 +164,7 @@ func (p *painter) fields() {
 		land[i], water[i] = k == pxLand, k != pxLand
 	}
 	p.dLand, p.dWater = distance(land, p.W, p.H), distance(water, p.W, p.H)
-	p.riverMask, p.roadOrRiver = make([]bool, n), make([]bool, n)
+	p.riverMask, p.roadOrRiver, p.roadPx = make([]bool, n), make([]bool, n), make([]bool, n)
 }
 
 // fieldAt – высота, клетка и вид пикселя. В горах к сглаженной высоте добавляются хребты и долины,
@@ -390,6 +394,9 @@ func (p *painter) roads() {
 		}
 		p.markLine(smooth, 3)
 		p.markRoad(smooth, 3)
+		for _, q := range smooth {
+			p.roadPx[p.at(int(q.x), int(q.y))] = true
+		}
 	}
 }
 
@@ -447,4 +454,65 @@ func (p *painter) paper() {
 			}
 		}
 	})
+}
+
+const travelStep = 8 // клетка сетки путешествий, пикселей
+
+// MilesPerPx – масштаб карты мира (тот же, что у масштабной линейки).
+const MilesPerPx = milesPerPx
+
+// Travel – сетка местности для путешествий (есть после Render).
+func (w *World) Travel() *travel.Grid { return w.travel }
+
+// travelGrid – местность клеток для путешествий: вода, дорога или местность клетки мира с учётом высоты.
+func (p *painter) travelGrid(step int) *travel.Grid {
+	g := &travel.Grid{Cols: max(1, p.W/step), Rows: max(1, p.H/step), Step: step}
+	g.Cells = make([]uint8, g.Cols*g.Rows)
+	for j := range g.Rows {
+		for i := range g.Cols {
+			g.Cells[j*g.Cols+i] = p.travelCell(i*step, j*step, step)
+		}
+	}
+	return g
+}
+
+func (p *painter) travelCell(x0, y0, step int) uint8 {
+	water, road := 0, false
+	for y := y0; y < y0+step; y += 2 {
+		for x := x0; x < x0+step; x += 2 {
+			i := p.at(x, y)
+			if p.kind[i] != pxLand {
+				water++
+			}
+			road = road || p.roadPx[i]
+		}
+	}
+	if water*2 > step*step/4 {
+		return travel.Water
+	}
+	if road {
+		return travel.Road
+	}
+	i := p.at(x0+step/2, y0+step/2)
+	switch h := float64(p.hp[i]); {
+	case h >= 64:
+		return travel.Mountain
+	case h >= 48:
+		return travel.Hills
+	}
+	switch p.w.TerrainOf(int(p.cell[i])) {
+	case Forest, Jungle:
+		return travel.Forest
+	case Swamp:
+		return travel.Swamp
+	case Desert:
+		return travel.Desert
+	case Snow, Tundra:
+		return travel.Snow
+	case Mountain:
+		return travel.Mountain
+	case Hills:
+		return travel.Hills
+	}
+	return travel.Plain
 }

@@ -22,23 +22,37 @@ func HasLocation(kind string) bool { return kind != "room" }
 
 // Location рисует карту места p и возвращает картинку, места внутри и размер боевой клетки (0 – без сетки).
 func (g Gen) Location(p model.Place, env Surroundings) (url string, places []model.Place, grid int, err error) {
+	rooms := 0
 	if p.Kind == "dungeon" {
-		url, places, err = g.Dungeon(8 + g.R.Intn(6))
-		return url, places, cellPx, err
+		rooms = 8 + g.R.Intn(6)
 	}
-	m, err := atlas.Location(atlas.SiteOpts{Kind: p.Kind, Name: p.Name, Race: p.Race, Biome: env.Biome,
-		Water: env.Water, WaterDir: env.WaterDir, R: g.R})
+	return g.site(atlas.SiteOpts{Kind: p.Kind, Name: p.Name, Race: p.Race, Biome: env.Biome,
+		Water: env.Water, WaterDir: env.WaterDir, Rooms: rooms, R: g.R}, p.Race)
+}
+
+// Dungeon рисует подземелье из rooms комнат с ловушками, тайниками и врагами под уровень группы.
+func (g Gen) Dungeon(name string, rooms int) (url string, places []model.Place, grid int, err error) {
+	return g.site(atlas.SiteOpts{Kind: "dungeon", Name: name, Rooms: rooms, R: g.R}, "")
+}
+
+func (g Gen) site(o atlas.SiteOpts, race string) (string, []model.Place, int, error) {
+	m, err := atlas.Location(o)
 	if err != nil {
 		return "", nil, 0, err
 	}
+	var places []model.Place
 	for _, sp := range m.Places {
-		places = append(places, model.Place{ID: g.NewID(), X: sp.X, Y: sp.Y, Kind: sp.Kind, Name: sp.Name, Race: p.Race})
+		places = append(places, model.Place{ID: g.NewID(), X: sp.X, Y: sp.Y, Kind: sp.Kind, Name: sp.Name, Note: sp.Note, Race: race})
 	}
-	url, err = canvas{m.Img}.dataURL(92)
+	url, err := canvas{m.Img}.dataURL(92)
 	if err != nil {
 		return "", nil, 0, err
 	}
-	return url, g.Populate(places, false), m.Grid, nil
+	places = g.Populate(places, false)
+	if o.Kind == "dungeon" && len(places) > 0 {
+		places[0].Foes, places[0].Loot = nil, "" // у входа тихо
+	}
+	return url, places, m.Grid, nil
 }
 
 // SurroundingsAt – местность вокруг точки (x, y) картинки карты мира: пиксели на кольцах вокруг места

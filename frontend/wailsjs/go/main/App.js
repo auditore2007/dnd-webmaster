@@ -198,6 +198,10 @@ export function OpenPlace(arg1, arg2, arg3) {
   return window['go']['main']['App']['OpenPlace'](arg1, arg2, arg3);
 }
 
+export function PlanJourney(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['PlanJourney'](arg1, arg2, arg3, arg4);
+}
+
 export function PopulatePlace(arg1, arg2, arg3) {
   return window['go']['main']['App']['PopulatePlace'](arg1, arg2, arg3);
 }
@@ -278,6 +282,10 @@ export function SetMapGrid(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetMapGrid'](arg1, arg2, arg3);
 }
 
+export function SetParty(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetParty'](arg1, arg2, arg3);
+}
+
 export function Snapshots() {
   return window['go']['main']['App']['Snapshots']();
 }
@@ -304,6 +312,10 @@ export function ToggleReaction(arg1) {
 
 export function TransferItem(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['TransferItem'](arg1, arg2, arg3, arg4);
+}
+
+export function Travel(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['Travel'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function Undo() {

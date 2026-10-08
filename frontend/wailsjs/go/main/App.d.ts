@@ -79,7 +79,7 @@ export function ExportSession():Promise<string>;
 
 export function GenerateDungeon(arg1:string,arg2:number,arg3:number,arg4:number):Promise<main.MapInfo>;
 
-export function GenerateWorld(arg1:string,arg2:number,arg3:Array<string>,arg4:number,arg5:string):Promise<main.MapInfo>;
+export function GenerateWorld(arg1:string,arg2:number,arg3:Array<string>,arg4:number,arg5:string,arg6:string):Promise<main.MapInfo>;
 
 export function GetFog(arg1:string):Promise<string>;
 

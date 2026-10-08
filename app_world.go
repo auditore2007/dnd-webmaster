@@ -20,6 +20,7 @@ import (
 	"heroesbook/internal/rules"
 	"heroesbook/internal/store"
 	"heroesbook/internal/vision"
+	"heroesbook/internal/atlas"
 	"heroesbook/internal/worldgen"
 )
 
@@ -108,8 +109,9 @@ func limitPlaces(ps []model.Place) []model.Place {
 	return ps
 }
 
-// GenerateWorld рисует карту мира, расселяет на ней выбранные расы (пусто – все) и населяет места. seed 0 – случайный.
-func (a *App) GenerateWorld(name string, seed int, races []string, level int, size string) (MapInfo, error) {
+// GenerateWorld рисует карту мира в стиле атласа, расселяет на ней выбранные расы (пусто – все) и населяет места.
+// seed 0 – случайный; template – шаблон рельефа (пусто – случайный).
+func (a *App) GenerateWorld(name string, seed int, races []string, level int, size, template string) (MapInfo, error) {
 	races, err := checkRaces(races)
 	if err != nil {
 		return MapInfo{}, err
@@ -119,11 +121,15 @@ func (a *App) GenerateWorld(name string, seed int, races []string, level int, si
 		dim = worldSizes["medium"]
 	}
 	g := a.gen(randomSeed(seed), level, races)
-	url, places, err := g.World(worldgen.WorldOpts{W: dim[0], H: dim[1]})
+	if _, ok := atlas.Templates()[template]; template != "" && !ok {
+		return MapInfo{}, fmt.Errorf("нет шаблона рельефа %q", template)
+	}
+	title := cmpStr(name, "Новый мир")
+	url, places, err := g.World(worldgen.WorldOpts{W: dim[0], H: dim[1], Title: title, Template: template})
 	if err != nil {
 		return MapInfo{}, err
 	}
-	return a.addGeneratedMap(cmpStr(name, "Новый мир"), url, places)
+	return a.addGeneratedMap(title, url, places)
 }
 
 // GenerateDungeon рисует подземелье из rooms комнат с ловушками, тайниками и врагами под уровень группы.

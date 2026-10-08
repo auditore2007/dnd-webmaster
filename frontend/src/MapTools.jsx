@@ -13,6 +13,12 @@ const readText = (file) => new Promise((resolve, reject) => {
 
 const SIZES = [['small', 'Маленькая'], ['medium', 'Средняя'], ['large', 'Большая']]
 
+// TEMPLATES – шаблоны рельефа генератора (как в Azgaar's Fantasy Map Generator).
+const TEMPLATES = [['', 'Случайный'], ['continents', 'Материки'], ['oldWorld', 'Старый Свет'], ['pangea', 'Пангея'],
+  ['highIsland', 'Высокий остров'], ['lowIsland', 'Низкий остров'], ['archipelago', 'Архипелаг'], ['mediterranean', 'Внутреннее море'],
+  ['peninsula', 'Полуостров'], ['isthmus', 'Перешеек'], ['shattered', 'Осколки'], ['fractious', 'Раздробленные земли'],
+  ['volcano', 'Вулкан'], ['atoll', 'Атолл'], ['taklamakan', 'Пустынное нагорье']]
+
 /** MapTools – вкладки «Создать мир», «Подземелье», «Импорт», «ИИ». onDone(map) – новая карта готова. */
 export function MapTools({ cat, level, setLevel, guard, onDone, panel, setPanel }) {
   if (!panel) return null
@@ -37,21 +43,23 @@ function WorldForm({ cat, level, guard, onDone, close }) {
   const races = cat[0]?.races ?? []
   const [name, setName] = useState('')
   const [size, setSize] = useState('medium')
+  const [template, setTemplate] = useState('')
   const [seed, setSeed] = useState('')
   const [picked, setPicked] = useState(() => races.map((r) => r.id))
   const [busy, setBusy] = useState('')
   const toggle = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
   const go = () => guard(async () => {
     setBusy('Рисуем горы, реки и расселяем народы…')
-    try { onDone(await api.GenerateWorld(name, parseInt(seed, 10) || 0, picked, level, size)); close() } finally { setBusy('') }
+    try { onDone(await api.GenerateWorld(name, parseInt(seed, 10) || 0, picked, level, size, template)); close() } finally { setBusy('') }
   })
   return (
     <>
       <h3>🌍 Создать карту мира</h3>
-      <p className="hint">Материк с горами, лесами, реками и дорогами. Каждая выбранная раса получает столицу и поселения в своей местности: дварфы – в горах, эльфы – в лесах, ящеролюды – в болотах. В диких землях появятся логова, руины и пещеры с врагами под уровень группы, в поселениях – жители и задания.</p>
+      <p className="hint">Карта в стиле старинного атласа: рельеф по шаблонам Azgaar, климат и биомы, реки и озёра, государства народов с границами, городами, замками и дорогами. Каждая выбранная раса получает столицу и поселения в своей местности: дварфы – в горах, эльфы – в лесах, ящеролюды – в болотах. В диких землях появятся логова, руины и пещеры с врагами под уровень группы, в поселениях – жители и задания.</p>
       <div className="grid2">
         <label>Название<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Новый мир" /></label>
         <label>Размер<select value={size} onChange={(e) => setSize(e.target.value)}>{SIZES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+        <label>Рельеф<select value={template} onChange={(e) => setTemplate(e.target.value)}>{TEMPLATES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         <label>Зерно (одно и то же число – та же карта)<input value={seed} onChange={(e) => setSeed(e.target.value.replace(/\D/g, ''))} placeholder="случайно" /></label>
       </div>
       <div className="row tight"><b>Народы мира</b> <small>{picked.length} из {races.length}</small>

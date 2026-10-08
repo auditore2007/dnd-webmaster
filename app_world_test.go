@@ -11,7 +11,7 @@ import (
 
 func TestGenerateWorldAndDungeonMaps(t *testing.T) {
 	a := newApp()
-	m, err := a.GenerateWorld("Эльдория", 7, []string{"human", "dwarf"}, 3, "small")
+	m, err := a.GenerateWorld("Эльдория", 7, []string{"human", "dwarf"}, 3, "small", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestGenerateWorldAndDungeonMaps(t *testing.T) {
 	if img, _ := a.GetMapImage(m.ID); !strings.HasPrefix(img, "data:image/jpeg") {
 		t.Error("у мира нет картинки")
 	}
-	if _, err := a.GenerateWorld("", 1, []string{"дракон-эльф"}, 3, "small"); err == nil {
+	if _, err := a.GenerateWorld("", 1, []string{"дракон-эльф"}, 3, "small", ""); err == nil {
 		t.Error("неизвестная раса должна отклоняться")
 	}
 	d, err := a.GenerateDungeon("", 3, 6, 2)

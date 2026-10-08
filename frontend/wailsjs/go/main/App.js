@@ -98,6 +98,10 @@ export function DeleteCharacter(arg1) {
   return window['go']['main']['App']['DeleteCharacter'](arg1);
 }
 
+export function DeleteGroup(arg1, arg2) {
+  return window['go']['main']['App']['DeleteGroup'](arg1, arg2);
+}
+
 export function DeleteLibraryItem(arg1) {
   return window['go']['main']['App']['DeleteLibraryItem'](arg1);
 }
@@ -198,8 +202,8 @@ export function OpenPlace(arg1, arg2, arg3) {
   return window['go']['main']['App']['OpenPlace'](arg1, arg2, arg3);
 }
 
-export function PlanJourney(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['PlanJourney'](arg1, arg2, arg3, arg4);
+export function PlanJourney(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['PlanJourney'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function PopulatePlace(arg1, arg2, arg3) {
@@ -278,12 +282,16 @@ export function SetFog(arg1, arg2) {
   return window['go']['main']['App']['SetFog'](arg1, arg2);
 }
 
+export function SetGroup(arg1, arg2) {
+  return window['go']['main']['App']['SetGroup'](arg1, arg2);
+}
+
 export function SetMapGrid(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetMapGrid'](arg1, arg2, arg3);
 }
 
-export function SetParty(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SetParty'](arg1, arg2, arg3);
+export function SetTeam(arg1, arg2) {
+  return window['go']['main']['App']['SetTeam'](arg1, arg2);
 }
 
 export function Snapshots() {

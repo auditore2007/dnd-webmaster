@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
+	"strings"
 
 	"heroesbook/internal/atlas"
 	"heroesbook/internal/model"
@@ -33,57 +35,158 @@ type Encounter struct {
 	Foes    []model.Foe `json:"foes"`
 }
 
-// SetParty ставит фишку отряда на карту.
-func (a *App) SetParty(mapID string, x, y float64) (MapInfo, error) {
+// groupColors – цвета групп по очереди.
+var groupColors = []string{"#e0b040", "#4aa3df", "#d9534f", "#6cc070", "#b07cd8", "#e08a3c"}
+
+const maxGroupName = 40
+
+// SetGroup создаёт группу (пустой ID) или меняет её: название, состав, место на карте. Герой может быть только
+// в одной группе на карте: взятые в эту группу уходят из прочих, опустевшие группы исчезают.
+func (a *App) SetGroup(mapID string, in store.Group) (MapInfo, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	m, err := a.mapAt(mapID)
 	if err != nil {
 		return MapInfo{}, err
 	}
-	if math.IsNaN(x) || math.IsNaN(y) || x < 0 || y < 0 || x > maxMapSide || y > maxMapSide {
-		return MapInfo{}, errors.New("отряд: точка вне карты")
+	in.Name = strings.TrimSpace(in.Name)
+	switch {
+	case len([]rune(in.Name)) > maxGroupName:
+		return MapInfo{}, fmt.Errorf("группа: название до %d символов", maxGroupName)
+	case math.IsNaN(in.X) || math.IsNaN(in.Y) || in.X < 0 || in.Y < 0 || in.X > maxMapSide || in.Y > maxMapSide:
+		return MapInfo{}, errors.New("группа: точка вне карты")
+	case len(in.Members) == 0:
+		return MapInfo{}, errors.New("в группе должен быть хотя бы один герой")
+	}
+	members := []string{}
+	for _, id := range in.Members {
+		if a.find(id) == nil {
+			return MapInfo{}, fmt.Errorf("герой %q не найден", id)
+		}
+		if !slices.Contains(members, id) {
+			members = append(members, id)
+		}
 	}
 	a.checkpoint()
-	m.Party = &store.Point{X: x, Y: y}
+	gi := slices.IndexFunc(m.Groups, func(g store.Group) bool { return g.ID == in.ID })
+	if in.ID == "" || gi < 0 {
+		in.ID = newID()
+		if in.Color == "" {
+			in.Color = groupColors[len(m.Groups)%len(groupColors)]
+		}
+		if in.Name == "" {
+			in.Name = fmt.Sprintf("Группа %d", len(m.Groups)+1)
+		}
+		m.Groups = append(m.Groups, store.Group{ID: in.ID})
+		gi = len(m.Groups) - 1
+	}
+	if in.Name == "" {
+		in.Name = m.Groups[gi].Name
+	}
+	if in.Color == "" {
+		in.Color = m.Groups[gi].Color
+	}
+	in.Members = members
+	m.Groups[gi] = in
+	for k := range m.Groups { // герой – только в одной группе
+		if m.Groups[k].ID != in.ID {
+			m.Groups[k].Members = slices.DeleteFunc(m.Groups[k].Members, func(id string) bool { return slices.Contains(members, id) })
+		}
+	}
+	m.Groups = slices.DeleteFunc(m.Groups, func(g store.Group) bool { return len(g.Members) == 0 })
 	return a.mapInfo(*m), a.persist()
 }
 
-// PlanJourney прокладывает путь отряда до точки (x, y) и считает дни в дороге при темпе pace (fast, normal, slow).
-func (a *App) PlanJourney(mapID string, x, y float64, pace string) (Journey, error) {
+// DeleteGroup убирает группу с карты (герои остаются в игре).
+func (a *App) DeleteGroup(mapID, groupID string) (MapInfo, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.plan(mapID, x, y, pace)
+	m, err := a.mapAt(mapID)
+	if err != nil {
+		return MapInfo{}, err
+	}
+	i := slices.IndexFunc(m.Groups, func(g store.Group) bool { return g.ID == groupID })
+	if i < 0 {
+		return MapInfo{}, errors.New("группа не найдена")
+	}
+	a.checkpoint()
+	m.Groups = slices.Delete(m.Groups, i, i+1)
+	return a.mapInfo(*m), a.persist()
 }
 
-func (a *App) plan(mapID string, x, y float64, pace string) (Journey, error) {
+// leaveGroups убирает героя из всех групп на всех картах (герой удалён из игры).
+func (a *App) leaveGroups(id string) {
+	for i := range a.state.Maps {
+		m := &a.state.Maps[i]
+		for k := range m.Groups {
+			m.Groups[k].Members = slices.DeleteFunc(m.Groups[k].Members, func(x string) bool { return x == id })
+		}
+		m.Groups = slices.DeleteFunc(m.Groups, func(g store.Group) bool { return len(g.Members) == 0 })
+	}
+}
+
+func (a *App) groupAt(m *store.MapMeta, groupID string) (*store.Group, error) {
+	i := slices.IndexFunc(m.Groups, func(g store.Group) bool { return g.ID == groupID })
+	if i < 0 {
+		return nil, errors.New("группа не найдена – поставьте группу на карту")
+	}
+	return &m.Groups[i], nil
+}
+
+// groupLevel – средний уровень героев группы (сила встреч в пути).
+func (a *App) groupLevel(g *store.Group) int {
+	sum, n := 0, 0
+	for _, id := range g.Members {
+		if c := a.find(id); c != nil && c.Kind != "monster" {
+			sum += c.Level
+			n++
+		}
+	}
+	if n == 0 {
+		return 1
+	}
+	return max(1, (sum+n/2)/n)
+}
+
+// PlanJourney прокладывает путь группы до точки (x, y) и считает дни в дороге при темпе pace (fast, normal, slow).
+func (a *App) PlanJourney(mapID, groupID string, x, y float64, pace string) (Journey, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.plan(mapID, groupID, x, y, pace)
+}
+
+func (a *App) plan(mapID, groupID string, x, y float64, pace string) (Journey, error) {
 	m, err := a.mapAt(mapID)
 	if err != nil {
 		return Journey{}, err
 	}
-	if m.Party == nil {
-		return Journey{}, errors.New("сначала поставьте отряд на карту")
-	}
-	g, err := a.travelGrid(mapID)
+	g, err := a.groupAt(m, groupID)
 	if err != nil {
 		return Journey{}, err
 	}
-	r, err := travel.Plan(g, travel.Point{X: m.Party.X, Y: m.Party.Y}, travel.Point{X: x, Y: y}, pace, atlas.MilesPerPx)
+	grid, err := a.travelGrid(mapID)
+	if err != nil {
+		return Journey{}, err
+	}
+	r, err := travel.Plan(grid, travel.Point{X: g.X, Y: g.Y}, travel.Point{X: x, Y: y}, pace, atlas.MilesPerPx)
 	if err != nil {
 		return Journey{}, err
 	}
 	return Journey{Route: r, Pace: pace, Encounters: []Encounter{}}, nil
 }
 
-// Travel ведёт отряд до точки: за каждый день пути – бросок на встречу по местности, где отряд в тот день идёт.
-func (a *App) Travel(mapID string, x, y float64, pace string, level int) (Journey, error) {
+// Travel ведёт группу до точки: за каждый день пути – бросок на встречу по местности, где группа в тот день идёт;
+// сила врагов – по среднему уровню героев группы.
+func (a *App) Travel(mapID, groupID string, x, y float64, pace string) (Journey, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	j, err := a.plan(mapID, x, y, pace)
+	j, err := a.plan(mapID, groupID, x, y, pace)
 	if err != nil {
 		return Journey{}, err
 	}
-	g := a.gen(randomSeed(0), level, nil)
+	m, _ := a.mapAt(mapID)
+	grp, _ := a.groupAt(m, groupID)
+	g := a.gen(randomSeed(0), a.groupLevel(grp), nil)
 	days := max(1, int(math.Ceil(j.Days)))
 	for d := 1; d <= days; d++ {
 		at, t := j.At((float64(d) - 0.5) / float64(days))
@@ -96,10 +199,9 @@ func (a *App) Travel(mapID string, x, y float64, pace string, level int) (Journe
 		}
 		j.Encounters = append(j.Encounters, Encounter{Day: d, X: at.X, Y: at.Y, Terrain: travel.Names[t], Text: text, Foes: foes})
 	}
-	m, _ := a.mapAt(mapID)
 	a.checkpoint()
-	m.Party = &store.Point{X: x, Y: y}
-	a.note("Отряд прошёл %.0f миль за %s, встреч в пути: %d", j.Miles, daysText(j.Days), len(j.Encounters))
+	grp.X, grp.Y = x, y
+	a.note("%s: %.0f миль за %s, встреч в пути: %d", grp.Name, j.Miles, daysText(j.Days), len(j.Encounters))
 	return j, a.persist()
 }
 

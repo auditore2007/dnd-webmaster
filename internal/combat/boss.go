@@ -117,6 +117,8 @@ func (e *Encounter) flees(r dice.Roller, get Lookup) bool {
 	e.Order = slices.Delete(e.Order, e.Turn, e.Turn+1)
 	delete(e.Init, id)
 	delete(e.React, id)
+	delete(e.Team, id)
+	rules.ClearEffects(c)
 	e.Gone = append(e.Gone, id)
 	if e.Turn >= len(e.Order) {
 		e.Turn, e.Round = 0, e.Round+1

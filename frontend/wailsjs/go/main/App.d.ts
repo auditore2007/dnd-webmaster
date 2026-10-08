@@ -6,6 +6,7 @@ import {bestiary} from '../models';
 import {rules} from '../models';
 import {treasure} from '../models';
 import {model} from '../models';
+import {store} from '../models';
 
 export function AddEffect(arg1:string,arg2:string,arg3:number,arg4:string):Promise<main.CharView>;
 
@@ -54,6 +55,8 @@ export function CreateCharacter(arg1:string,arg2:string,arg3:string,arg4:string,
 export function DeathSave(arg1:string):Promise<main.CharView>;
 
 export function DeleteCharacter(arg1:string):Promise<void>;
+
+export function DeleteGroup(arg1:string,arg2:string):Promise<main.MapInfo>;
 
 export function DeleteLibraryItem(arg1:string):Promise<void>;
 
@@ -105,7 +108,7 @@ export function NextTurn():Promise<combat.Encounter>;
 
 export function OpenPlace(arg1:string,arg2:string,arg3:number):Promise<main.MapInfo>;
 
-export function PlanJourney(arg1:string,arg2:number,arg3:number,arg4:string):Promise<main.Journey>;
+export function PlanJourney(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string):Promise<main.Journey>;
 
 export function PopulatePlace(arg1:string,arg2:string,arg3:number):Promise<main.MapInfo>;
 
@@ -145,9 +148,11 @@ export function SetEncounterOptions(arg1:boolean,arg2:boolean,arg3:boolean):Prom
 
 export function SetFog(arg1:string,arg2:string):Promise<void>;
 
+export function SetGroup(arg1:string,arg2:store.Group):Promise<main.MapInfo>;
+
 export function SetMapGrid(arg1:string,arg2:number,arg3:number):Promise<void>;
 
-export function SetParty(arg1:string,arg2:number,arg3:number):Promise<main.MapInfo>;
+export function SetTeam(arg1:string,arg2:number):Promise<combat.Encounter>;
 
 export function Snapshots():Promise<Array<main.SnapshotInfo>>;
 
@@ -163,7 +168,7 @@ export function ToggleReaction(arg1:string):Promise<combat.Encounter>;
 
 export function TransferItem(arg1:string,arg2:string,arg3:number,arg4:number):Promise<Array<main.CharView>>;
 
-export function Travel(arg1:string,arg2:number,arg3:number,arg4:string,arg5:number):Promise<main.Journey>;
+export function Travel(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string):Promise<main.Journey>;
 
 export function Undo():Promise<void>;
 

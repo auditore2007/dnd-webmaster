@@ -100,6 +100,22 @@ func (a *App) migrate() {
 	if bs, ok := a.store.(blobStore); ok {
 		_ = bs.SaveBlob("settings", "") // ключ Gemini от удалённого распознавания карт больше не хранится
 	}
+	for i := range a.state.Maps { // один отряд прежних версий – группа «Отряд» со всеми героями
+		m := &a.state.Maps[i]
+		if m.Party == nil {
+			continue
+		}
+		g := store.Group{ID: newID(), Name: "Отряд", X: m.Party.X, Y: m.Party.Y, Color: groupColors[0]}
+		for _, c := range a.state.Characters {
+			if c.Kind != "monster" && !c.Dead {
+				g.Members = append(g.Members, c.ID)
+			}
+		}
+		if len(g.Members) > 0 {
+			m.Groups = append(m.Groups, g)
+		}
+		m.Party = nil
+	}
 }
 
 // addSRD добавляет в библиотеку недостающие предметы SRD (по названию) и возвращает их число.
@@ -524,8 +540,9 @@ func (a *App) DeleteCharacter(id string) error {
 		if chars[i].ID == id {
 			a.checkpoint()
 			a.note("Удалён: %s", chars[i].Name)
-			a.state.Characters = append(chars[:i:i], chars[i+1:]...)
-			a.leaveEncounter(id)
+			a.leaveEncounter(id) // пока герой ещё в игре: его концентрация и эффекты снимаются
+			a.state.Characters = slices.DeleteFunc(a.state.Characters, func(c model.Character) bool { return c.ID == id })
+			a.leaveGroups(id)
 			return a.persist()
 		}
 	}
@@ -862,6 +879,16 @@ func (a *App) logNew(e *combat.Encounter, before int) {
 			e.Seq++
 		case "monsters":
 			e.Log = append([]string{"☠️ Герои пали"}, e.Log...)
+			e.Seq++
+		case "":
+		default:
+			var names []string
+			for _, id := range e.Order {
+				if c := a.find(id); c != nil && c.Standing() {
+					names = append(names, c.Name)
+				}
+			}
+			e.Log = append([]string{fmt.Sprintf("🏆 Победила команда %s: %s", strings.TrimPrefix(w, "team"), strings.Join(names, ", "))}, e.Log...)
 			e.Seq++
 		}
 	}

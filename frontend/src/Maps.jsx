@@ -65,7 +65,7 @@ export default function MapsView({ guard, rev = 0, chars = [], cat = [], reload,
         ? <p className="empty">Карт пока нет. Создайте мир или подземелье прямо здесь – или загрузите свою картинку и разметьте её вручную.</p>
         : map && img ? <Viewer key={map.id + ':' + rev} map={map} img={img} guard={guard} reload={() => load(map.id)}
           onMap={onMap} cat={cat} level={level} reloadChars={reload} notify={notify}
-          parentMap={parentMap} parentPlace={parentPlace} onOpenMap={(m) => load(m.id)} /> : <p className="hint">Загрузка карты…</p>}
+          parentMap={parentMap} parentPlace={parentPlace} onOpenMap={(m) => load(m.id)} chars={chars} /> : <p className="hint">Загрузка карты…</p>}
     </section>
   )
 }
@@ -75,12 +75,16 @@ const FOGMAX = 1024
 // INSIDE – места, у которых на карте локации есть своя карта (здание изнутри, подземелье, замок в городе).
 const INSIDE = ['tavern', 'temple', 'shop', 'smithy', 'dungeon', 'castle']
 
-function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notify, parentMap, parentPlace, onOpenMap }) {
+function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notify, parentMap, parentPlace, onOpenMap, chars = [] }) {
   const [sel, setSel] = useState('')
   const [about, setAbout] = useState(false)
   const world = !map.parent && !(map.grid > 0) // путешествовать можно по карте мира
-  const [trip, setTrip] = useState(null)       // маршрут или пройденный путь: { ...journey, dest:[x,y], done }
+  const [trip, setTrip] = useState(null)       // маршрут или пройденный путь: { ...journey, dest:[x,y], done, group }
   const [pace, setPace] = useState('normal')
+  const groups = map.groups ?? []
+  const [gid, setGid] = useState(groups[0]?.id ?? '') // выбранная группа
+  const group = groups.find((g) => g.id === gid) ?? groups[0]
+  const [making, setMaking] = useState(null)           // новая группа: { name, members } – ждёт щелчка по карте
   const [placeKind, setPlaceKind] = useState('tavern')
   const [placeName, setPlaceName] = useState('')
   const [showPlaces, setShowPlaces] = useState(true)
@@ -202,20 +206,31 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
     try { onOpenMap(await api.OpenPlace(map.id, p.id, level)) } finally { setBusy('') }
   })
   // ----- путешествия -----
-  const planTo = (x, y, pc = pace) => guard(async () => {
-    if (!map.party) { onMap(await api.SetParty(map.id, x, y)); setTrip(null); return }
-    setTrip({ ...(await api.PlanJourney(map.id, x, y, pc)), dest: [x, y], done: false })
+  const saveGroup = (g) => guard(async () => {
+    const m = await api.SetGroup(map.id, g)
+    onMap(m)
+    const same = m.groups.find((x) => x.id === g.id) ?? m.groups.at(-1)
+    if (same) setGid(same.id)
   })
+  const planTo = (x, y, pc = pace) => {
+    if (making) { // новая группа встаёт туда, куда щёлкнули
+      if (making.members.length) saveGroup({ id: '', name: making.name, x, y, members: making.members, color: '' })
+      setMaking(null)
+      return
+    }
+    if (!group) return
+    guard(async () => setTrip({ ...(await api.PlanJourney(map.id, group.id, x, y, pc)), dest: [x, y], done: false, group: group.id }))
+  }
   const go = () => guard(async () => {
-    setBusy('Отряд в пути…')
+    setBusy(`${group.name} в пути…`)
     try {
-      const j = await api.Travel(map.id, trip.dest[0], trip.dest[1], pace, level)
-      setTrip({ ...j, dest: trip.dest, done: true })
+      const j = await api.Travel(map.id, group.id, trip.dest[0], trip.dest[1], pace)
+      setTrip({ ...j, dest: trip.dest, done: true, group: group.id })
       await reload()
-      notify?.(`Отряд прошёл ${Math.round(j.miles)} миль, встреч в пути: ${j.encounters.length}`)
+      notify?.(`${group.name}: ${Math.round(j.miles)} миль, встреч в пути: ${j.encounters.length}`)
     } finally { setBusy('') }
   })
-  const moveParty = () => guard(async () => { onMap(await api.SetParty(map.id, trip.dest[0], trip.dest[1])); setTrip(null) })
+  const moveParty = () => { saveGroup({ ...group, x: trip.dest[0], y: trip.dest[1] }); setTrip(null) }
   const toTable = (foes) => guard(async () => {
     for (const f of foes) await api.AddMonster(f.id, f.count)
     await reloadChars()
@@ -274,7 +289,9 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
           <label className="eq"><input type="checkbox" checked={labels} onChange={(e) => setLabels(e.target.checked)} /> подписи городов</label></>}
       </div>
       {tool === 'place' && <PlaceTool kind={placeKind} setKind={setPlaceKind} name={placeName} setName={setPlaceName} />}
-      {tool === 'travel' && <TripPanel map={map} trip={trip} pace={pace} busy={busy}
+      {tool === 'travel' && <GroupPanel groups={groups} group={group} chars={chars} making={making} setMaking={setMaking}
+        select={(id) => { setGid(id); setTrip(null) }} save={saveGroup} remove={(id) => guard(async () => onMap(await api.DeleteGroup(map.id, id)))} />}
+      {tool === 'travel' && group && <TripPanel trip={trip?.group === group.id ? trip : null} group={group} pace={pace} busy={busy}
         setPace={(p) => { setPace(p); if (trip && !trip.done) planTo(trip.dest[0], trip.dest[1], p) }}
         go={go} moveParty={moveParty} close={() => setTrip(null)} toTable={toTable} />}
       {tool === 'pin' && <div className="row tight"><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Подпись метки, затем клик по карте" aria-label="Подпись метки" /></div>}
@@ -315,7 +332,10 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
               strokeWidth={4 / v.k} strokeDasharray={`${12 / v.k} ${8 / v.k}`} strokeLinecap="round" strokeLinejoin="round" />
             <circle cx={trip.dest[0]} cy={trip.dest[1]} r={8 / v.k} fill="#ffd34d" stroke="#000" strokeWidth={1.5 / v.k} /></svg>}
           {trip?.done && trip.encounters.map((en, i) => <div className="encmark" key={i} style={{ left: en.x, top: en.y }} title={`День ${en.day}: ${en.text}`}>⚔️</div>)}
-          {map.party && <div className="party" style={{ left: map.party.x, top: map.party.y }} title="Отряд">🛡️</div>}
+          {groups.map((g) => <button key={g.id} className={'party' + (g.id === group?.id ? ' sel' : '')} style={{ left: g.x, top: g.y, '--gc': g.color }}
+            title={`${g.name}: ${g.members.map((id) => chars.find((c) => c.id === id)?.name ?? '?').join(', ')}`}
+            onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setGid(g.id); setTrip(null) }}>
+            <span className="pi">🛡️</span><span className="pl">{g.name}</span></button>)}
           {map.pins.map((p, i) => <div className="pin" key={`${i}:${p.x}:${p.y}`} style={{ left: p.x, top: p.y }}><span>{p.text}</span>
             <button aria-label={`Удалить метку ${p.text}`} onClick={() => guard(async () => { await api.RemovePin(map.id, i); await reload() })}>✕</button></div>)}
           {showPlaces && places.map((p) => <PlaceMarker key={p.id} p={p} selected={p.id === sel} onSelect={pick} labels={labels} opens={canOpen(p)} />)}
@@ -330,10 +350,50 @@ const PACES = [['slow', 'Медленно (18 миль/день, можно кр
 
 const daysText = (d) => (d < 1 ? `${Math.round(d * 8)} ч` : `${+d.toFixed(2)} дн.`)
 
-/** TripPanel – путешествие: куда идёт отряд, сколько миль и дней, по какой местности; после похода – встречи в пути. */
-function TripPanel({ map, trip, pace, setPace, busy, go, moveParty, close, toTable }) {
-  if (!map.party) return <p className="hint">🛡️ Щёлкните по карте, чтобы поставить отряд.</p>
-  if (!trip) return <p className="hint">🛡️ Щёлкните по месту или точке на карте – отряд проложит путь по суше: по дорогам быстрее, через леса, болота и горы медленнее.</p>
+/** GroupPanel – группы героев на карте: выбрать, создать, отделить героев, присоединить к другой группе, убрать. */
+export function GroupPanel({ groups, group, chars, making, setMaking, select, save, remove }) {
+  const [split, setSplit] = useState([])
+  const heroes = chars.filter((c) => c.kind !== 'monster' && !c.dead)
+  const name = (id) => chars.find((c) => c.id === id)?.name ?? '?'
+  const free = heroes.filter((c) => !groups.some((g) => g.members.includes(c.id)))
+  const toggle = (list, id) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
+  const startNew = () => setMaking({ name: '', members: (free.length ? free : heroes).map((c) => c.id) })
+  if (making) return (
+    <div className="trip">
+      <div className="row tight"><b>Новая группа</b>
+        <input value={making.name} onChange={(e) => setMaking({ ...making, name: e.target.value })} placeholder={`Группа ${groups.length + 1}`} aria-label="Название группы" /></div>
+      <div className="chips">{heroes.map((c) => <button key={c.id} className="chip" aria-pressed={making.members.includes(c.id)}
+        onClick={() => setMaking({ ...making, members: toggle(making.members, c.id) })}>{c.name}</button>)}</div>
+      <p className="hint">{making.members.length ? '🛡️ Щёлкните по карте – туда встанет группа. Герои из других групп перейдут в неё.' : 'Отметьте героев группы.'}</p>
+      <div className="row tight"><button className="ghost small" onClick={() => setMaking(null)}>Отмена</button></div>
+    </div>
+  )
+  return (
+    <div className="trip">
+      {groups.length === 0 && <p className="hint">Групп на карте нет. Создайте группу, отметьте героев и щёлкните по карте.</p>}
+      {groups.map((g) => <div key={g.id} className={'grp' + (g.id === group?.id ? ' sel' : '')} style={{ '--gc': g.color }}>
+        <button className="ghost small" aria-pressed={g.id === group?.id} onClick={() => { select(g.id); setSplit([]) }}>🛡️ {g.name}</button>
+        <span className="chips">{g.members.map((id) => <span key={id} className="chip" aria-pressed={split.includes(id)}>
+          <button className="linkish" title="Отметить, чтобы отделить" onClick={() => { select(g.id); setSplit(toggle(g.id === group?.id ? split : [], id)) }}>{name(id)}</button>
+          {g.members.length > 1 && <button title={`${name(id)} идёт отдельно – своя группа на том же месте`} aria-label={`Отделить ${name(id)}`}
+            onClick={() => save({ id: '', name: name(id), x: g.x, y: g.y, members: [id], color: '' })}>↗</button>}</span>)}</span>
+        {g.id === group?.id && split.length > 0 && split.length < g.members.length &&
+          <button className="ghost small" onClick={() => { save({ id: '', name: '', x: g.x, y: g.y, members: split, color: '' }); setSplit([]) }}>Отделить отмеченных ({split.length})</button>}
+        {groups.length > 1 && <select aria-label={`Присоединить ${g.name} к группе`} value="" onChange={(e) => {
+          const to = groups.find((x) => x.id === e.target.value)
+          if (to) save({ ...to, members: [...to.members, ...g.members] })
+        }}><option value="">присоединить к…</option>{groups.filter((x) => x.id !== g.id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>}
+        <button className="ghost small danger" aria-label={`Убрать группу ${g.name} с карты`} onClick={() => remove(g.id)}>✕</button>
+      </div>)}
+      <div className="row tight"><button className="ghost small" disabled={!heroes.length} onClick={startNew}>＋ Новая группа</button>
+        {group && <small>Щёлкните по месту или точке – {group.name} проложит путь.</small>}</div>
+    </div>
+  )
+}
+
+/** TripPanel – путешествие выбранной группы: сколько миль и дней, по какой местности; после похода – встречи в пути. */
+export function TripPanel({ trip, group, pace, setPace, busy, go, moveParty, close, toTable }) {
+  if (!trip) return null
   return (
     <div className="trip">
       <div className="row tight">
@@ -344,10 +404,10 @@ function TripPanel({ map, trip, pace, setPace, busy, go, moveParty, close, toTab
       {!trip.done ? <div className="row tight">
         {busy ? <span className="busy"><span className="spinner">🎲</span> {busy}</span>
           : <button className="primary small" onClick={go}>🚶 Отправиться</button>}
-        <button className="ghost small" onClick={moveParty}>📍 Просто переставить отряд</button>
+        <button className="ghost small" onClick={moveParty}>📍 Просто переставить группу</button>
         <button className="ghost small" onClick={close}>Отмена</button>
       </div> : <>
-        <p>{trip.encounters.length ? `Отряд дошёл. Встречи в пути: ${trip.encounters.length}` : 'Отряд дошёл без происшествий.'}</p>
+        <p>{trip.encounters.length ? `${group.name} на месте. Встречи в пути: ${trip.encounters.length}` : `${group.name} дошли без происшествий.`}</p>
         {trip.encounters.map((en, i) => <div className="quest" key={i}>
           <b>День {en.day} · {en.terrain}</b>
           <p>{en.text}</p>

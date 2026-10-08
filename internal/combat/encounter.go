@@ -25,8 +25,11 @@ type Encounter struct {
 	Left  int             `json:"left"` // сколько атак осталось в этот ход (дополнительная атака, мультиатака)
 	Log   []string        `json:"log"`
 	Seq   int             `json:"seq"`   // сколько записей добавлено за всё время; нужно для журнала сессии
-	Won   string          `json:"won"`   // кто победил: heroes | monsters | ""
+	Won   string          `json:"won"`   // кто победил: heroes | monsters | team<N> (бой команд) | ""
 	React map[string]bool `json:"react"` // у кого потрачена реакция в этом раунде
+	// Team – команда участника (1–4). Враги – все из других команд. По умолчанию герои – 1, существа – 2;
+	// если в бою одни герои, каждый сам за себя.
+	Team map[string]int `json:"team"`
 	// Настройки боя: существа ходят сами, проверяют мораль, бой идёт в логове босса.
 	Auto      bool     `json:"auto"`
 	Morale    bool     `json:"morale"`
@@ -36,7 +39,7 @@ type Encounter struct {
 }
 
 func Start(r dice.Roller, ids []string, get Lookup) (*Encounter, error) {
-	e := &Encounter{Init: map[string]int{}, Round: 1, React: map[string]bool{}, Auto: true, Morale: true}
+	e := &Encounter{Init: map[string]int{}, Round: 1, React: map[string]bool{}, Team: map[string]int{}, Auto: true, Morale: true}
 	ruleset := ""
 	for _, id := range ids {
 		if _, dup := e.Init[id]; dup {
@@ -62,6 +65,13 @@ func Start(r dice.Roller, ids []string, get Lookup) (*Encounter, error) {
 		return nil, errors.New("для боя нужно минимум два участника")
 	}
 	sort.SliceStable(e.Order, func(i, j int) bool { return e.Init[e.Order[i]] > e.Init[e.Order[j]] })
+	duel := !slices.ContainsFunc(e.Order, func(id string) bool { return get(id).Kind == "monster" })
+	for i, id := range e.Order {
+		e.Team[id] = defaultTeam(get(id))
+		if duel { // одни герои – каждый сам за себя
+			e.Team[id] = 1 + i%MaxTeams
+		}
+	}
 	names := make([]string, len(e.Order))
 	for i, id := range e.Order {
 		names[i] = fmt.Sprintf("%s %d", get(id).Name, e.Init[id])
@@ -82,6 +92,7 @@ func (e *Encounter) Clone() *Encounter {
 	out.Log = slices.Clone(e.Log)
 	out.React = maps.Clone(e.React)
 	out.Gone = slices.Clone(e.Gone)
+	out.Team = maps.Clone(e.Team)
 	return &out
 }
 
@@ -272,35 +283,49 @@ func (e *Encounter) Current() string {
 	return e.Order[e.Turn]
 }
 
-// mixed – в бою есть и герои, и существа: тогда «враги» – это противоположная сторона. Если все участники одного вида
-// (дуэль героев), врагом считается любой другой участник.
-func (e *Encounter) mixed(get Lookup) bool {
-	var mon, hero bool
-	for _, id := range e.Order {
-		if c := get(id); c != nil {
-			if c.Kind == "monster" {
-				mon = true
-			} else {
-				hero = true
-			}
-		}
+// MaxTeams – сколько команд может быть в бою.
+const MaxTeams = 4
+
+func defaultTeam(c *model.Character) int {
+	if c != nil && c.Kind == "monster" {
+		return 2
 	}
-	return mon && hero
+	return 1
 }
 
-// Foes – стоящие на ногах противники участника id.
+// TeamOf – команда участника (для старых сохранений без команд – по виду: герои 1, существа 2).
+func (e *Encounter) TeamOf(get Lookup, id string) int {
+	if t, ok := e.Team[id]; ok {
+		return t
+	}
+	return defaultTeam(get(id))
+}
+
+// SetTeam переводит участника в другую команду (бой героев между собой, предатель, перешедший на сторону врага).
+func (e *Encounter) SetTeam(get Lookup, id string, team int) error {
+	if _, ok := e.Init[id]; !ok {
+		return errors.New("участник не в бою")
+	}
+	if team < 1 || team > MaxTeams {
+		return fmt.Errorf("команды – от 1 до %d", MaxTeams)
+	}
+	if e.Team == nil {
+		e.Team = map[string]int{}
+	}
+	e.Team[id] = team
+	e.logf("%s теперь в команде %d", get(id).Name, team)
+	return nil
+}
+
+// Foes – стоящие на ногах противники участника id: все из других команд.
 func (e *Encounter) Foes(get Lookup, id string) (out []*model.Character) {
-	me := get(id)
-	if me == nil {
+	if get(id) == nil {
 		return nil
 	}
-	mixed := e.mixed(get)
+	mine := e.TeamOf(get, id)
 	for _, oid := range e.Order {
 		c := get(oid)
-		if c == nil || oid == id || !c.Standing() {
-			continue
-		}
-		if mixed && (c.Kind == "monster") == (me.Kind == "monster") {
+		if c == nil || oid == id || !c.Standing() || e.TeamOf(get, oid) == mine {
 			continue
 		}
 		out = append(out, c)
@@ -331,6 +356,10 @@ func (e *Encounter) Add(r dice.Roller, ids []string, get Lookup) error {
 			return err
 		}
 		e.Init[id] = rs.Initiative(r, c)
+		if e.Team == nil {
+			e.Team = map[string]int{}
+		}
+		e.Team[id] = defaultTeam(c)
 		add = append(add, id)
 	}
 	for _, id := range add {
@@ -357,10 +386,14 @@ func (e *Encounter) Remove(r dice.Roller, id string, get Lookup) {
 	if i < 0 {
 		return
 	}
-	if c := get(id); c != nil && c.Conc != "" {
-		e.DropConc(c, get)
+	if c := get(id); c != nil {
+		if c.Conc != "" {
+			e.DropConc(c, get)
+		}
+		rules.ClearEffects(c) // эффекты боя на ушедшем заканчиваются
 	}
 	delete(e.React, id)
+	delete(e.Team, id)
 	wasCurrent := i == e.Turn
 	e.Order = append(e.Order[:i:i], e.Order[i+1:]...)
 	delete(e.Init, id)
@@ -377,26 +410,55 @@ func (e *Encounter) Remove(r dice.Roller, id string, get Lookup) {
 	}
 }
 
-// Winner: "heroes" или "monsters", если на ногах остались только герои либо только существа; "" – бой продолжается.
+// Winner – кто победил, когда на ногах осталась одна команда: "heroes" (одни герои против существ), "monsters"
+// (существа против героев) или "team<N>" (бой команд); "" – бой продолжается.
 func (e *Encounter) Winner(get Lookup) string {
-	var heroes, mons int
+	teams := map[int]bool{}    // все команды боя (вместе с упавшими)
+	standing := map[int]bool{} // команды, у которых кто-то на ногах
+	var winHeroes, winMons, loseHeroes, loseMons bool
 	for _, id := range e.Order {
-		if c := get(id); c != nil && c.Standing() {
-			if c.Kind == "monster" {
-				mons++
-			} else {
-				heroes++
-			}
+		c := get(id)
+		if c == nil {
+			continue
+		}
+		t := e.TeamOf(get, id)
+		teams[t] = true
+		if c.Standing() {
+			standing[t] = true
 		}
 	}
-	mixed := e.mixed(get) || (len(e.Gone) > 0 && heroes > 0)
+	if len(e.Gone) > 0 { // сбежавшие и сдавшиеся – проигравшая сторона
+		teams[0] = true
+	}
+	if len(standing) != 1 || len(teams) < 2 {
+		return ""
+	}
+	win := 0
+	for t := range standing {
+		win = t
+	}
+	for _, id := range e.Order {
+		c := get(id)
+		if c == nil {
+			continue
+		}
+		mon := c.Kind == "monster"
+		if e.TeamOf(get, id) == win {
+			winHeroes, winMons = winHeroes || !mon, winMons || mon
+		} else {
+			loseHeroes, loseMons = loseHeroes || !mon, loseMons || mon
+		}
+	}
+	if len(e.Gone) > 0 {
+		loseMons = true // сбегают только существа
+	}
 	switch {
-	case mons == 0 && heroes > 0 && mixed:
+	case winHeroes && !winMons && loseMons && !loseHeroes:
 		return "heroes"
-	case heroes == 0 && mons > 0 && mixed:
+	case winMons && !winHeroes && loseHeroes && !loseMons:
 		return "monsters"
 	}
-	return ""
+	return fmt.Sprintf("team%d", win)
 }
 
 func (e *Encounter) Attack(r dice.Roller, get Lookup, targetID string, w model.Weapon, m dice.Mode) (model.AttackResult, error) {

@@ -359,3 +359,21 @@ func (a *App) GetFog(id string) (string, error) {
 	}
 	return "", nil
 }
+
+// SetTeam переводит участника боя в команду 1–4: герои могут биться между собой, кто-то – перейти к врагу.
+func (a *App) SetTeam(id string, team int) (*combat.Encounter, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	e := a.state.Encounter
+	if e == nil {
+		return nil, errors.New("бой не начат")
+	}
+	a.checkpoint()
+	before := e.Seq
+	if err := e.SetTeam(a.find, id, team); err != nil {
+		a.rollback()
+		return nil, err
+	}
+	a.logNew(e, before)
+	return e.Clone(), a.persist()
+}

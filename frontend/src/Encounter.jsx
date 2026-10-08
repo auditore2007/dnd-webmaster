@@ -10,6 +10,7 @@ import { keptD20 } from './rollText.js'
 import { BattleOptions, BossBadges, LegendaryPanel, useAutoTurn } from './Boss.jsx'
 
 const isMon = (c) => c?.kind === 'monster'
+export const TEAM_COLORS = ['', '#4aa3df', '#d9534f', '#6cc070', '#e0b040']
 
 export default function Encounter({ chars, cat, mode, guard, reload, throwDice, notify, rev }) {
   const [enc, setEnc] = useState(null)
@@ -20,6 +21,8 @@ export default function Encounter({ chars, cat, mode, guard, reload, throwDice, 
   useEffect(() => { guard(async () => setEnc(await api.Encounter())) }, [guard, rev])
   const by = Object.fromEntries(chars.map((c) => [c.id, c]))
   const autoTurn = useAutoTurn({ enc, by, setEnc, reload, throwDice })
+  const curId = enc?.order?.[enc?.turn]
+  useEffect(() => { setWi(null); setTarget('') }, [curId]) // оружие и цель – у каждого участника свои
 
   const toggle = (id) => setIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
   const run = (f) => guard(async () => { await f(); await reload() })
@@ -29,7 +32,8 @@ export default function Encounter({ chars, cat, mode, guard, reload, throwDice, 
   if (!enc) return (
     <section>
       <h2>Бой</h2>
-      <p className="hint">Отметьте участников. Инициатива бросается автоматически. В бою можно будет добавить новых врагов, не прерывая его.</p>
+      <p className="hint">Отметьте участников. Инициатива бросается автоматически. В бою можно будет добавить новых врагов, не прерывая его.
+        Герои против существ – две команды; если отметить одних героев, каждый бьётся сам за себя. Команды можно менять прямо в бою.</p>
       <div className="row tight">
         <button className="ghost" onClick={() => setIds(chars.filter((c) => !c.dead).map((c) => c.id))}>Все</button>
         <button className="ghost" onClick={() => setIds(heroes.filter((c) => !c.dead).map((c) => c.id))}>Все герои</button>
@@ -50,11 +54,13 @@ export default function Encounter({ chars, cat, mode, guard, reload, throwDice, 
   const cur = by[enc.order[enc.turn]]
   const rs = cat.find((r) => r.id === cur?.ruleset)
   const alive = (c) => c && !c.dead && c.hp > 0
-  const mixed = enc.order.some((id) => isMon(by[id])) && enc.order.some((id) => by[id] && !isMon(by[id]))
-  const sameSide = (id) => !mixed || isMon(by[id]) === isMon(cur)
+  // команды: враги – все из других команд (у старых боёв без команд – герои 1, существа 2)
+  const teamOf = (id) => enc.team?.[id] ?? (isMon(by[id]) ? 2 : 1)
+  const sameSide = (id) => teamOf(id) === teamOf(cur?.id)
   const foes = enc.order.filter((id) => id !== cur?.id && by[id] && !by[id].dead && !sameSide(id) && (alive(by[id]) || rs?.deathSaves))
   const foesAlive = foes.filter((id) => alive(by[id]))
-  const allies = enc.order.filter((id) => by[id] && alive(by[id]) && (mixed ? isMon(by[id]) === isMon(cur) : true))
+  const allies = enc.order.filter((id) => by[id] && alive(by[id]) && sameSide(id))
+  const teamWon = enc.won?.startsWith('team') ? +enc.won.slice(4) : 0
   const tgt = foes.includes(target) ? target : foes[0]
   const ws = cur?.derived?.weapons ?? []
   const wsel = wi === null ? (ws.length ? 0 : -1) : wi < ws.length ? wi : -1
@@ -82,10 +88,13 @@ export default function Encounter({ chars, cat, mode, guard, reload, throwDice, 
       <BattleOptions enc={enc} by={by} setEnc={setEnc} guard={guard} />
       <div className="order">
         {enc.order.map((id, i) => { const c = by[id]; if (!c) return null
-          return <div key={id} style={{ '--i': i }} className={'bi' + (i === enc.turn ? ' now' : '') + (!alive(c) ? ' down' : '') + (isMon(c) ? ' foe' : '')}>
+          return <div key={id} style={{ '--i': i, borderTop: `4px solid ${TEAM_COLORS[teamOf(id)]}` }} className={'bi' + (i === enc.turn ? ' now' : '') + (!alive(c) ? ' down' : '') + (isMon(c) ? ' foe' : '')}>
             <div className="bh"><Avatar hero={c} size={38} /><b>{c.name}</b>
               <button className="ghost small push" title="Убрать из боя (убежал или не участвует)" aria-label={`Убрать из боя: ${c.name}`} onClick={() => run(async () => { const e = await api.RemoveFromEncounter(id); setEnc(e) ; if (!e) notify('В бою не осталось участников – бой завершён') })}>✕</button></div>
-            <small>{isMon(c) ? 'враг' : 'герой'} · иниц. {enc.init[id]}{c.dead ? ' · погиб' : !alive(c) ? (isMon(c) ? ' · повержен' : c.stable ? ' · стабилен' : ` · умирает ✓${c.deathOk} ✗${c.deathFail}`) : ''}</small>
+            <select className="team" aria-label={`Команда: ${c.name}`} title="Команда: бьются все, кто в разных командах" value={teamOf(id)}
+              style={{ color: TEAM_COLORS[teamOf(id)] }} onChange={(e) => run(async () => setEnc(await api.SetTeam(id, +e.target.value)))}>
+              {[1, 2, 3, 4].map((t) => <option key={t} value={t}>команда {t}</option>)}</select>
+            <small>{isMon(c) ? 'существо' : 'герой'} · иниц. {enc.init[id]}{c.dead ? ' · погиб' : !alive(c) ? (isMon(c) ? ' · повержен' : c.stable ? ' · стабилен' : ` · умирает ✓${c.deathOk} ✗${c.deathFail}`) : ''}</small>
             <HpMeter hp={c.hp} max={c.derived?.maxHp ?? 0} temp={c.tempHp} label={`Здоровье: ${c.name}`} />
             {(c.conditions?.length > 0 || c.effects?.length > 0 || c.conc || c.stat?.legendary > 0 || c.used?.phase) && <div className="chips">
               <BossBadges c={c} />
@@ -113,6 +122,8 @@ export default function Encounter({ chars, cat, mode, guard, reload, throwDice, 
       {enc.won === 'heroes' && <div className="win box-in">🏆 Победа! Все враги повержены.
         <div className="row"><button className="primary" onClick={() => end(false)}>Завершить бой и убрать павших врагов</button></div></div>}
       {enc.won === 'monsters' && <div className="win lose box-in">☠️ Герои пали.<div className="row"><button className="ghost danger" onClick={() => end(false)}>Завершить бой</button></div></div>}
+      {teamWon > 0 && <div className="win box-in" style={{ borderColor: TEAM_COLORS[teamWon] }}>🏆 Победила команда {teamWon}: {enc.order.filter((id) => teamOf(id) === teamWon && alive(by[id])).map((id) => by[id].name).join(', ')}
+        <div className="row"><button className="primary" onClick={() => end(false)}>Завершить бой</button></div></div>}
       {!enc.won && standing.length < 2 && <p className="win">Остался один: {by[standing[0]]?.name ?? 'никого'}</p>}
       {autoTurn && <div className="act auto"><span className="spinner" aria-hidden="true">🎲</span> <b>{cur.name}</b> ходит сам…
         <button className="ghost small" onClick={() => guard(async () => setEnc(await api.SetEncounterOptions(false, enc.morale, enc.lair)))}>Пауза – ходить за врагов вручную</button></div>}
@@ -125,7 +136,7 @@ export default function Encounter({ chars, cat, mode, guard, reload, throwDice, 
         {enc.left > 1 && <button className="primary" disabled={!tgt} title="Все оставшиеся атаки хода по выбранной цели" onClick={() => attack(true)}>{isMon(cur) && cur.stat?.multi?.length ? 'Мультиатака' : 'Все атаки'}</button>}
         {!isMon(cur) && <Abilities key={cur.id} h={cur} chars={chars} inFight call={(p) => run(async () => { await p; setEnc(await api.Encounter()) })} />}
         {cur.spells?.length > 0 && rs?.spells?.length > 0 && <SpellPanel key={cur.id} cur={cur} rs={rs} foes={foesAlive} allies={allies} by={by} tgt={tgt} mode={mode} run={run} setEnc={setEnc} />}
-        {specials.map((f) => <button key={f.key} className="ghost spec" disabled={f.on || (f.mode === 'single' && !tgt)} title={f.desc + (f.mode === 'single' ? ' Бьёт выбранную цель.' : mixed ? ' Бьёт только врагов.' : '')}
+        {specials.map((f) => <button key={f.key} className="ghost spec" disabled={f.on || (f.mode === 'single' && !tgt)} title={f.desc + (f.mode === 'single' ? ' Бьёт выбранную цель.' : ' Бьёт только тех, кто в других командах.')}
           onClick={() => run(async () => setEnc(f.mode === 'single' ? await api.UseSpecialAt(f.key, tgt) : await api.UseSpecial(f.key)))}>{f.mode === 'single' ? '🎯' : '💥'} {f.name}{f.on ? ' (нет)' : ''}</button>)}
         <EffectForm key={cur.id} chars={enc.order.map((id) => by[id]).filter(Boolean)} rs={rs} cur={cur} tgt={tgt} run={run} />
       </div>}

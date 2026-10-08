@@ -30,10 +30,41 @@ func (a *App) leaveEncounter(id string) {
 	before := e.Seq
 	e.Remove(a.rng, id, a.find)
 	if len(e.Order) < 2 {
-		a.state.Encounter = nil
+		a.finishEncounter(false)
 		return
 	}
 	a.logNew(e, before)
+}
+
+// finishEncounter заканчивает бой: эффекты боя снимаются, герои отдыхают после схватки, павшие существа
+// (и все существа при clearMonsters) убираются со стола. Возвращает число убранных.
+func (a *App) finishEncounter(clearMonsters bool) int {
+	removed := map[string]bool{}
+	if e := a.state.Encounter; e != nil {
+		e.Cleanup(a.find)
+		for _, id := range append(slices.Clone(e.Order), e.Gone...) { // сбежавшие и сдавшиеся остаются на столе, пока их не уберут
+			c := a.find(id)
+			if c == nil {
+				continue
+			}
+			if c.Kind == "monster" {
+				if c.Dead || c.Down() || clearMonsters {
+					removed[id] = true
+				}
+				continue
+			}
+			if rs, err := rules.Get(c.Ruleset); err == nil {
+				rs.Rest(c, "battle")
+			}
+		}
+		a.note("Бой окончен")
+	}
+	a.dropCharacters(removed)
+	a.state.Encounter = nil
+	if len(removed) > 0 {
+		a.note("Убрано существ: %d", len(removed))
+	}
+	return len(removed)
 }
 
 // AddToEncounter вводит в идущий бой уже созданных героев или существ.
@@ -99,32 +130,8 @@ func (a *App) EndEncounter(clearMonsters bool) (int, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.checkpoint()
-	removed := map[string]bool{}
-	if e := a.state.Encounter; e != nil {
-		e.Cleanup(a.find)
-		for _, id := range append(slices.Clone(e.Order), e.Gone...) { // сбежавшие и сдавшиеся остаются на столе, пока их не уберут
-			c := a.find(id)
-			if c == nil {
-				continue
-			}
-			if c.Kind == "monster" {
-				if c.Dead || c.Down() || clearMonsters {
-					removed[id] = true
-				}
-				continue
-			}
-			if rs, err := rules.Get(c.Ruleset); err == nil {
-				rs.Rest(c, "battle")
-			}
-		}
-		a.note("Бой окончен")
-	}
-	a.dropCharacters(removed)
-	a.state.Encounter = nil
-	if len(removed) > 0 {
-		a.note("Убрано существ: %d", len(removed))
-	}
-	return len(removed), a.persist()
+	n := a.finishEncounter(clearMonsters)
+	return n, a.persist()
 }
 
 // ClearMonsters убирает со стола всех существ (когда боя нет).
@@ -308,9 +315,9 @@ type MapInfo struct {
 	HasFog bool          `json:"hasFog"`
 	Places []model.Place `json:"places"`
 	// карта локации: с какой карты и какого места на ней она открыта
-	Parent      string       `json:"parent"`
-	ParentPlace string       `json:"parentPlace"`
-	Party       *store.Point `json:"party"`
+	Parent      string        `json:"parent"`
+	ParentPlace string        `json:"parentPlace"`
+	Groups      []store.Group `json:"groups"`
 }
 
 func (a *App) mapInfo(m store.MapMeta) MapInfo {
@@ -321,7 +328,7 @@ func (a *App) mapInfo(m store.MapMeta) MapInfo {
 		}
 	}
 	return MapInfo{m.ID, m.Name, append([]store.Pin{}, m.Pins...), m.Grid, max(5, m.Feet), has,
-		append([]model.Place{}, model.ClonePlaces(m.Places)...), m.Parent, m.ParentPlace, clonePoint(m.Party)}
+		append([]model.Place{}, model.ClonePlaces(m.Places)...), m.Parent, m.ParentPlace, cloneGroups(m.Groups)}
 }
 
 func (a *App) Maps() []MapInfo {
@@ -481,10 +488,11 @@ func (a *App) dropMap(id string) {
 	}
 }
 
-func clonePoint(p *store.Point) *store.Point {
-	if p == nil {
-		return nil
+func cloneGroups(gs []store.Group) []store.Group {
+	out := make([]store.Group, len(gs))
+	for i, g := range gs {
+		out[i] = g
+		out[i].Members = slices.Clone(g.Members)
 	}
-	c := *p
-	return &c
+	return out
 }

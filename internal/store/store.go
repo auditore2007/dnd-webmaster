@@ -20,6 +20,16 @@ type Point struct {
 	Y float64 `json:"y"`
 }
 
+// Group – группа героев на карте: где стоит и кто в ней. Герой бывает только в одной группе на карте.
+type Group struct {
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	X       float64  `json:"x"`
+	Y       float64  `json:"y"`
+	Members []string `json:"members"`
+	Color   string   `json:"color"`
+}
+
 type Pin struct {
 	X    float64 `json:"x"`
 	Y    float64 `json:"y"`
@@ -36,7 +46,8 @@ type MapMeta struct {
 	Places      []model.Place `json:"places"`                // места: поселения, логова, NPC и задания
 	Parent      string        `json:"parent,omitempty"`      // карта, с которой открыта эта (карта локации)
 	ParentPlace string        `json:"parentPlace,omitempty"` // место на родительской карте
-	Party       *Point        `json:"party,omitempty"`       // где стоит отряд (путешествия по карте мира)
+	Party       *Point        `json:"party,omitempty"`       // устарело: один отряд до групп; переносится в Groups
+	Groups      []Group       `json:"groups,omitempty"`      // группы героев на карте (путешествия)
 }
 
 // Snapshot – именованная копия игры. Данные лежат в отдельном файле snap-<id>;

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"heroesbook/internal/model"
+	"heroesbook/internal/store"
 	"heroesbook/internal/worldgen"
 )
 
@@ -113,32 +114,42 @@ func TestOpenPlaceMakesLocationMapOnce(t *testing.T) {
 	}
 }
 
-func TestPartyTravelsAcrossWorld(t *testing.T) {
+func TestGroupsSplitMergeAndTravel(t *testing.T) {
 	a := newApp()
 	w, err := a.GenerateWorld("Мир", 9, []string{"human", "elf"}, 3, "small", "")
 	if err != nil {
 		t.Fatal(err)
 	}
+	var heroes []string
+	for _, n := range []string{"Лира", "Торг", "Эльм"} {
+		v, err := a.CreateCharacter("dnd5e", n, "human", "", "fighter")
+		if err != nil {
+			t.Fatal(err)
+		}
+		heroes = append(heroes, v.ID)
+	}
 	from, to := w.Places[0], w.Places[1]
-	if _, err := a.PlanJourney(w.ID, to.X, to.Y, "normal"); err == nil {
-		t.Error("без отряда маршрута нет")
+	if _, err := a.SetGroup(w.ID, store.Group{X: from.X, Y: from.Y}); err == nil {
+		t.Error("пустая группа не создаётся")
 	}
-	if w, err = a.SetParty(w.ID, from.X, from.Y); err != nil || w.Party == nil {
-		t.Fatalf("отряд: %v", err)
+	w, err = a.SetGroup(w.ID, store.Group{Name: "Отряд", X: from.X, Y: from.Y, Members: heroes})
+	if err != nil || len(w.Groups) != 1 {
+		t.Fatalf("группа: %v", err)
 	}
-	plan, err := a.PlanJourney(w.ID, to.X, to.Y, "normal")
+	party := w.Groups[0]
+	// разведчик отделяется – герой уходит из старой группы
+	w, err = a.SetGroup(w.ID, store.Group{Name: "Разведка", X: from.X, Y: from.Y, Members: heroes[2:]})
+	if err != nil || len(w.Groups) != 2 || len(w.Groups[0].Members) != 2 {
+		t.Fatalf("разделение: %+v %v", w.Groups, err)
+	}
+	scout := w.Groups[1]
+	plan, err := a.PlanJourney(w.ID, scout.ID, to.X, to.Y, "normal")
+	if err != nil || plan.Miles <= 0 || plan.Days <= 0 || len(plan.Path) < 2 {
+		t.Fatalf("маршрут: %+v %v", plan, err)
+	}
+	j, err := a.Travel(w.ID, scout.ID, to.X, to.Y, "fast")
 	if err != nil {
 		t.Fatal(err)
-	}
-	if plan.Miles <= 0 || plan.Days <= 0 || len(plan.Path) < 2 || len(plan.Legs) == 0 {
-		t.Fatalf("маршрут: %+v", plan)
-	}
-	j, err := a.Travel(w.ID, to.X, to.Y, "fast", 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if j.Days > plan.Days {
-		t.Error("быстрым темпом не дольше")
 	}
 	for _, e := range j.Encounters {
 		if e.Day < 1 || len(e.Foes) == 0 || e.Text == "" {
@@ -146,10 +157,29 @@ func TestPartyTravelsAcrossWorld(t *testing.T) {
 		}
 	}
 	m := a.Maps()[0]
-	if m.Party == nil || m.Party.X != to.X || m.Party.Y != to.Y {
-		t.Errorf("отряд должен прийти: %+v", m.Party)
+	if g := m.Groups[1]; g.X != to.X || g.Y != to.Y || m.Groups[0].X != from.X {
+		t.Errorf("пришла только разведка: %+v", m.Groups)
 	}
-	if err := a.DeleteMap(w.ID); err != nil {
-		t.Fatal(err)
+	// разведчик возвращается в отряд – его группа исчезает
+	party.Members = heroes
+	if w, err = a.SetGroup(w.ID, party); err != nil || len(w.Groups) != 1 {
+		t.Fatalf("объединение: %+v %v", w.Groups, err)
+	}
+	if err := a.DeleteCharacter(heroes[0]); err != nil || len(a.Maps()[0].Groups[0].Members) != 2 {
+		t.Errorf("удалённый герой уходит из группы: %+v", a.Maps()[0].Groups)
+	}
+	if w, err = a.DeleteGroup(w.ID, party.ID); err != nil || len(w.Groups) != 0 {
+		t.Errorf("удаление группы: %v", err)
+	}
+}
+
+func TestOldPartyBecomesGroup(t *testing.T) {
+	a := newApp()
+	h, _ := a.CreateCharacter("dnd5e", "Лира", "human", "", "fighter")
+	a.state.Maps = append(a.state.Maps, store.MapMeta{ID: "m", Name: "Мир", Party: &store.Point{X: 5, Y: 6}})
+	a.migrate()
+	g := a.state.Maps[0].Groups
+	if a.state.Maps[0].Party != nil || len(g) != 1 || g[0].X != 5 || g[0].Members[0] != h.ID {
+		t.Errorf("отряд → группа: %+v", g)
 	}
 }

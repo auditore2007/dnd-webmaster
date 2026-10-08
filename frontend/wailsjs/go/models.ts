@@ -92,6 +92,7 @@ export namespace combat {
 	    seq: number;
 	    won: string;
 	    react: Record<string, boolean>;
+	    team: Record<string, number>;
 	    auto: boolean;
 	    morale: boolean;
 	    lair: boolean;
@@ -114,6 +115,7 @@ export namespace combat {
 	        this.seq = source["seq"];
 	        this.won = source["won"];
 	        this.react = source["react"];
+	        this.team = source["team"];
 	        this.auto = source["auto"];
 	        this.morale = source["morale"];
 	        this.lair = source["lair"];
@@ -386,7 +388,7 @@ export namespace main {
 	    places: model.Place[];
 	    parent: string;
 	    parentPlace: string;
-	    party?: store.Point;
+	    groups: store.Group[];
 	
 	    static createFrom(source: any = {}) {
 	        return new MapInfo(source);
@@ -403,7 +405,7 @@ export namespace main {
 	        this.places = this.convertValues(source["places"], model.Place);
 	        this.parent = source["parent"];
 	        this.parentPlace = source["parentPlace"];
-	        this.party = this.convertValues(source["party"], store.Point);
+	        this.groups = this.convertValues(source["groups"], store.Group);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1600,6 +1602,28 @@ export namespace rules {
 
 export namespace store {
 	
+	export class Group {
+	    id: string;
+	    name: string;
+	    x: number;
+	    y: number;
+	    members: string[];
+	    color: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Group(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.members = source["members"];
+	        this.color = source["color"];
+	    }
+	}
 	export class Pin {
 	    x: number;
 	    y: number;
@@ -1614,20 +1638,6 @@ export namespace store {
 	        this.x = source["x"];
 	        this.y = source["y"];
 	        this.text = source["text"];
-	    }
-	}
-	export class Point {
-	    x: number;
-	    y: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new Point(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.x = source["x"];
-	        this.y = source["y"];
 	    }
 	}
 

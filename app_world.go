@@ -39,7 +39,7 @@ const (
 	settingsBlob   = "settings"
 )
 
-var worldSizes = map[string][2]int{"small": {1200, 750}, "medium": {1600, 1000}, "large": {2200, 1400}}
+var worldSizes = map[string][2]int{"small": {1800, 1125}, "medium": {2400, 1500}, "large": {3200, 2000}}
 
 func (a *App) gen(seed int64, level int, races []string) worldgen.Gen {
 	r := worldgen.Seeded(seed)

@@ -142,6 +142,7 @@ func (p *painter) burgObstacles() {
 		p.obstacles = append(p.obstacles, spriteBox(name, st.X, st.Y, h).Inset(-2))
 	}
 	p.mills()
+	p.hamlets()
 }
 
 // mills – у части деревень мельница: на реке – водяная, в степи и полях – ветряная.

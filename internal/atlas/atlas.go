@@ -94,7 +94,8 @@ type Burg struct {
 }
 
 const (
-	pxPerCell   = 160 // площадь клетки в пикселях: 1600×1000 – 10 000 клеток
+	pxPerCell   = 240   // площадь клетки в пикселях: 2400×1500 – 15 000 клеток
+	maxCells    = 24000 // больше – генерация долгая, а деталь всё равно дорисовывает шум
 	minLandPart = 0.22
 	maxLandPart = 0.85 // без моря атлас скучный
 	maxAttempts = 4
@@ -126,7 +127,7 @@ func Generate(o Opts) (*World, error) {
 }
 
 func build(o Opts, r rng, template string) (*World, error) {
-	g := newGrid(o.W, o.H, max(500, o.W*o.H/pxPerCell), r)
+	g := newGrid(o.W, o.H, min(maxCells, max(500, o.W*o.H/pxPerCell)), r)
 	h, err := buildHeights(g, r, template)
 	if err != nil {
 		return nil, err

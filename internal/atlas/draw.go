@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"runtime"
+	"sync"
 
 	"golang.org/x/image/vector"
 )
@@ -242,4 +244,24 @@ func distance(src []bool, w, h int) []float32 {
 		out[i] = float32(v) / 3
 	}
 	return out
+}
+
+// parallelRows делит строки 0..h на полосы и обрабатывает их одновременно на всех ядрах.
+func parallelRows(h int, fn func(y0, y1 int)) {
+	n := min(h, runtime.NumCPU())
+	var wg sync.WaitGroup
+	for k := range n {
+		y0, y1 := h*k/n, h*(k+1)/n
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fn(y0, y1)
+		}()
+	}
+	wg.Wait()
+}
+
+func smoothstep(a, b, x float64) float64 {
+	t := clamp((x-a)/(b-a), 0, 1)
+	return t * t * (3 - 2*t)
 }

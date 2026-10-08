@@ -87,3 +87,16 @@ func (n *noise) fbm(x, y float64, octaves int) float64 {
 }
 
 func clamp(v, lo, hi float64) float64 { return math.Max(lo, math.Min(hi, v)) }
+
+// ridged – «гребневый» шум: острые хребты и долины между ними (0..1).
+func (n *noise) ridged(x, y float64, octaves int) float64 {
+	sum, amp, norm := 0.0, 1.0, 0.0
+	for range octaves {
+		r := 1 - math.Abs(2*n.at(x, y)-1)
+		sum += amp * r * r
+		norm += amp
+		amp *= 0.5
+		x, y = x*2.07+5.3, y*2.07+11.9
+	}
+	return sum / norm
+}

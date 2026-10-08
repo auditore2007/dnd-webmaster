@@ -29,8 +29,7 @@ var (
 // relief – расставляет значки по сетке со случайным сдвигом, нижние рисуются поверх верхних.
 func (p *painter) relief() {
 	var icons []icon
-	icons = append(icons, p.scatter(17*p.scale, p.mountainAt)...)
-	icons = append(icons, p.scatter(9*p.scale, p.vegetationAt)...)
+	icons = append(icons, p.scatter(6.8*p.scale, p.vegetationAt)...)
 	sort.SliceStable(icons, func(a, b int) bool { return icons[a].y < icons[b].y })
 	for _, ic := range icons {
 		p.drawIcon(ic)
@@ -66,25 +65,6 @@ func (p *painter) blocked(x, y, r float64) bool {
 		}
 	}
 	return false
-}
-
-func (p *painter) mountainAt(x, y float64) (icon, bool) {
-	i := p.at(int(x), int(y))
-	h := float64(p.hp[i])
-	cold := p.w.Temp[p.cell[i]] < 3
-	switch {
-	case h >= 64:
-		if !p.r.chance(0.85) {
-			return icon{}, false
-		}
-		return icon{x: x, y: y, size: (15 + (h-64)*0.55 + p.r.between(-2, 3)) * p.scale, kind: "mountain", snow: cold || h > 82}, true
-	case h >= 50:
-		if !p.r.chance(0.55) {
-			return icon{}, false
-		}
-		return icon{x: x, y: y, size: (9 + (h-50)*0.25) * p.scale, kind: "hill", snow: cold && h > 56}, true
-	}
-	return icon{}, false
 }
 
 func (p *painter) vegetationAt(x, y float64) (icon, bool) {
@@ -129,10 +109,6 @@ func (p *painter) vegetationAt(x, y float64) (icon, bool) {
 
 func (p *painter) drawIcon(ic icon) {
 	switch ic.kind {
-	case "mountain":
-		p.mountain(ic)
-	case "hill":
-		p.hill(ic)
 	case "tree":
 		p.tree(ic.x, ic.y, ic.size)
 	case "pine":
@@ -148,67 +124,32 @@ func (p *painter) drawIcon(ic icon) {
 	}
 }
 
-func (p *painter) mountain(ic icon) {
-	x, y, s := ic.x, ic.y, ic.size
-	half := s * p.r.between(0.62, 0.8)
-	px := x + p.r.between(-0.12, 0.12)*s
-	top := pt{px, y - s}
-	left, right := pt{x - half, y}, pt{x + half, y}
-	// неровный правый склон с уступом
-	mid := pt{px + (right.x-px)*0.45, y - s*0.55 + p.r.between(-0.08, 0.08)*s}
-	base := rgb(178, 160, 132)
-	p.c.fill([][]pt{{left, top, mid, right}}, shade(base, 1.12), 1)
-	p.c.fill([][]pt{{top, mid, right, {px + s*0.08, y}}}, shade(base, 0.68), 1)
-	if ic.snow {
-		cap1 := pt{px - (px-left.x)*0.32, y - s*0.68}
-		cap2 := pt{px + (mid.x-px)*0.55, top.y + (mid.y-top.y)*0.55}
-		p.c.fill([][]pt{{cap1, top, cap2, {px, y - s*0.62}}}, snowColor, 0.95)
-	}
-	// тень у подножия и контур
-	p.c.stroke([]pt{{left.x + s*0.1, y + 0.5}, {right.x, y + 0.5}}, 1.2*p.scale, rgb(110, 92, 70), 0.35)
-	p.c.stroke([]pt{left, top, mid, right}, 1.15*p.scale, inkColor, 0.9)
-	p.c.stroke([]pt{top, {px + s*0.06, y - s*0.35}}, 0.8*p.scale, inkColor, 0.55)
-}
-
-func (p *painter) hill(ic icon) {
-	x, y, s := ic.x, ic.y, ic.size
-	var arc []pt
-	for a := math.Pi; a <= 2*math.Pi+1e-9; a += math.Pi / 12 {
-		arc = append(arc, pt{x + math.Cos(a)*s*0.75, y + math.Sin(a)*s*0.55})
-	}
-	col := rgb(170, 156, 110)
-	if ic.snow {
-		col = rgb(210, 208, 198)
-	}
-	p.c.fill([][]pt{arc}, shade(col, 1.08), 0.9)
-	shadow := []pt{{x, y}}
-	for a := 1.5 * math.Pi; a <= 2*math.Pi+1e-9; a += math.Pi / 12 {
-		shadow = append(shadow, pt{x + math.Cos(a)*s*0.75, y + math.Sin(a)*s*0.55})
-	}
-	p.c.fill([][]pt{shadow}, shade(col, 0.72), 0.85)
-	p.c.stroke(arc, 1.0*p.scale, inkColor, 0.8)
-}
+// treeTone – немного разный оттенок у каждого дерева.
+func (p *painter) treeTone(c color.RGBA) color.RGBA { return shade(c, p.r.between(0.86, 1.14)) }
 
 func (p *painter) tree(x, y, s float64) {
-	p.c.stroke([]pt{{x, y}, {x, y - s*0.45}}, 1.2*p.scale, rgb(84, 60, 40), 0.9)
-	p.c.fill([][]pt{ellipse(x+s*0.08, y-s*0.75, s*0.52, s*0.48)}, shade(treeDark, 0.85), 0.95)
-	p.c.fill([][]pt{ellipse(x-s*0.1, y-s*0.85, s*0.36, s*0.32)}, treeLight, 0.9)
-	p.c.stroke(circle(x+s*0.04, y-s*0.77, s*0.5), 0.7*p.scale, inkColor, 0.45)
+	base := p.treeTone(treeDark)
+	p.c.fill([][]pt{ellipse(x+s*0.3, y, s*0.55, s*0.16)}, rgb(30, 40, 20), 0.28)
+	p.c.stroke([]pt{{x, y}, {x, y - s*0.45}}, 1.2*p.scale, rgb(78, 56, 36), 0.95)
+	p.c.fill([][]pt{circle(x-s*0.24, y-s*0.66, s*0.36), circle(x+s*0.24, y-s*0.68, s*0.36), circle(x, y-s*0.95, s*0.4)}, shade(base, 0.72), 1)
+	p.c.fill([][]pt{circle(x-s*0.18, y-s*0.78, s*0.26), circle(x+s*0.06, y-s*1.0, s*0.28)}, base, 1)
+	p.c.fill([][]pt{circle(x-s*0.14, y-s*1.06, s*0.15)}, shade(treeLight, 1.12), 0.95)
 }
 
 func (p *painter) pine(x, y, s float64, snow bool) {
-	p.c.stroke([]pt{{x, y}, {x, y - s*0.3}}, 1.1*p.scale, rgb(84, 60, 40), 0.9)
-	for k, lv := range []float64{0.25, 0.55} {
-		w := s * (0.42 - float64(k)*0.1)
-		top := y - s*(lv+0.55)
+	dark, light := p.treeTone(pineDark), p.treeTone(pineLight)
+	p.c.fill([][]pt{ellipse(x+s*0.28, y, s*0.45, s*0.14)}, rgb(30, 40, 20), 0.28)
+	p.c.stroke([]pt{{x, y}, {x, y - s*0.25}}, 1.1*p.scale, rgb(78, 56, 36), 0.95)
+	for k, lv := range []float64{0.2, 0.48, 0.74} {
+		w := s * (0.46 - float64(k)*0.12)
+		top := y - s*(lv+0.5)
 		base := y - s*lv
-		p.c.fill([][]pt{{{x - w, base}, {x, top}, {x + w, base}}}, pineDark, 0.95)
-		p.c.fill([][]pt{{{x - w, base}, {x, top}, {x, base}}}, pineLight, 0.9)
+		p.c.fill([][]pt{{{x - w, base}, {x - w*0.35, base - s*0.06}, {x, top}, {x + w*0.35, base - s*0.06}, {x + w, base}}}, dark, 1)
+		p.c.fill([][]pt{{{x - w, base}, {x - w*0.35, base - s*0.06}, {x, top}, {x, base - s*0.04}}}, light, 0.95)
 		if snow {
-			p.c.fill([][]pt{{{x - w*0.4, top + s*0.2}, {x, top}, {x + w*0.4, top + s*0.2}}}, snowColor, 0.9)
+			p.c.fill([][]pt{{{x - w*0.45, top + s*0.2}, {x, top}, {x + w*0.45, top + s*0.2}}}, snowColor, 0.9)
 		}
 	}
-	p.c.stroke([]pt{{x - s*0.42, y - s*0.25}, {x, y - s*1.1}, {x + s*0.42, y - s*0.25}}, 0.7*p.scale, inkColor, 0.5)
 }
 
 func (p *painter) palm(x, y, s float64) {

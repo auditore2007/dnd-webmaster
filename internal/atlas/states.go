@@ -241,11 +241,11 @@ func expand(w *World, peoples []People, r rng) {
 // towns – города каждого государства, по числу его клеток; у моря – порты.
 func towns(w *World, peoples []People, r rng) {
 	land := w.landCells()
-	target := min(70, max(len(w.States)*3, land/110))
+	target := min(140, max(len(w.States)*4, land/55))
 	minD := w.spacing(target) * 0.6
 	for si, st := range w.States {
 		want := int(math.Round(float64(target)*float64(st.Cells)/float64(max(1, land)))) - 1
-		want = min(6, max(1, want))
+		want = min(14, max(2, want))
 		p := peopleOf(peoples, st.Race)
 		type cand struct {
 			c int

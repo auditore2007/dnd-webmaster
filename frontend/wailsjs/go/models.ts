@@ -18,6 +18,11 @@ export namespace bestiary {
 	    vuln: string[];
 	    immune: string[];
 	    specials: model.Special[];
+	    legendary: number;
+	    legRes: number;
+	    legActs: model.LegAct[];
+	    lair: model.Special[];
+	    phase?: model.Phase;
 	    custom: boolean;
 	    desc: string;
 	
@@ -44,6 +49,11 @@ export namespace bestiary {
 	        this.vuln = source["vuln"];
 	        this.immune = source["immune"];
 	        this.specials = this.convertValues(source["specials"], model.Special);
+	        this.legendary = source["legendary"];
+	        this.legRes = source["legRes"];
+	        this.legActs = this.convertValues(source["legActs"], model.LegAct);
+	        this.lair = this.convertValues(source["lair"], model.Special);
+	        this.phase = this.convertValues(source["phase"], model.Phase);
 	        this.custom = source["custom"];
 	        this.desc = source["desc"];
 	    }
@@ -82,6 +92,11 @@ export namespace combat {
 	    seq: number;
 	    won: string;
 	    react: Record<string, boolean>;
+	    auto: boolean;
+	    morale: boolean;
+	    lair: boolean;
+	    lairRound: number;
+	    gone: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new Encounter(source);
@@ -99,6 +114,11 @@ export namespace combat {
 	        this.seq = source["seq"];
 	        this.won = source["won"];
 	        this.react = source["react"];
+	        this.auto = source["auto"];
+	        this.morale = source["morale"];
+	        this.lair = source["lair"];
+	        this.lairRound = source["lairRound"];
+	        this.gone = source["gone"];
 	    }
 	}
 
@@ -106,6 +126,22 @@ export namespace combat {
 
 export namespace main {
 	
+	export class AIView {
+	    hasKey: boolean;
+	    keyHint: string;
+	    model: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AIView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hasKey = source["hasKey"];
+	        this.keyHint = source["keyHint"];
+	        this.model = source["model"];
+	    }
+	}
 	export class CharView {
 	    id: string;
 	    name: string;
@@ -244,6 +280,38 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class LegendaryView {
+	    encounter?: combat.Encounter;
+	    result?: model.AttackResult;
+	
+	    static createFrom(source: any = {}) {
+	        return new LegendaryView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.encounter = this.convertValues(source["encounter"], combat.Encounter);
+	        this.result = this.convertValues(source["result"], model.AttackResult);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class MapInfo {
 	    id: string;
 	    name: string;
@@ -251,6 +319,7 @@ export namespace main {
 	    grid: number;
 	    feet: number;
 	    hasFog: boolean;
+	    places: model.Place[];
 	
 	    static createFrom(source: any = {}) {
 	        return new MapInfo(source);
@@ -264,6 +333,43 @@ export namespace main {
 	        this.grid = source["grid"];
 	        this.feet = source["feet"];
 	        this.hasFog = source["hasFog"];
+	        this.places = this.convertValues(source["places"], model.Place);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class MonsterTurnView {
+	    encounter?: combat.Encounter;
+	    actor: string;
+	    results: model.AttackResult[];
+	    targets: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new MonsterTurnView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.encounter = this.convertValues(source["encounter"], combat.Encounter);
+	        this.actor = source["actor"];
+	        this.results = this.convertValues(source["results"], model.AttackResult);
+	        this.targets = source["targets"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -425,6 +531,68 @@ export namespace model {
 	        this.id = source["id"];
 	    }
 	}
+	export class Phase {
+	    pct: number;
+	    name: string;
+	    atk: number;
+	    ac: number;
+	    extra: number;
+	    temp: number;
+	    recharge: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Phase(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.pct = source["pct"];
+	        this.name = source["name"];
+	        this.atk = source["atk"];
+	        this.ac = source["ac"];
+	        this.extra = source["extra"];
+	        this.temp = source["temp"];
+	        this.recharge = source["recharge"];
+	    }
+	}
+	export class LegAct {
+	    key: string;
+	    name: string;
+	    cost: number;
+	    weapon: number;
+	    special?: Special;
+	
+	    static createFrom(source: any = {}) {
+	        return new LegAct(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.name = source["name"];
+	        this.cost = source["cost"];
+	        this.weapon = source["weapon"];
+	        this.special = this.convertValues(source["special"], Special);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Special {
 	    key: string;
 	    name: string;
@@ -487,6 +655,11 @@ export namespace model {
 	    vuln: string[];
 	    immune: string[];
 	    specials: Special[];
+	    legendary?: number;
+	    legRes?: number;
+	    legActs?: LegAct[];
+	    lair?: Special[];
+	    phase?: Phase;
 	
 	    static createFrom(source: any = {}) {
 	        return new MonsterStat(source);
@@ -507,6 +680,11 @@ export namespace model {
 	        this.vuln = source["vuln"];
 	        this.immune = source["immune"];
 	        this.specials = this.convertValues(source["specials"], Special);
+	        this.legendary = source["legendary"];
+	        this.legRes = source["legRes"];
+	        this.legActs = this.convertValues(source["legActs"], LegAct);
+	        this.lair = this.convertValues(source["lair"], Special);
+	        this.phase = this.convertValues(source["phase"], Phase);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -919,7 +1097,124 @@ export namespace model {
 	}
 	
 	
+	export class Foe {
+	    id: string;
+	    name: string;
+	    cr: string;
+	    count: number;
 	
+	    static createFrom(source: any = {}) {
+	        return new Foe(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.cr = source["cr"];
+	        this.count = source["count"];
+	    }
+	}
+	
+	
+	
+	export class NPC {
+	    name: string;
+	    race: string;
+	    role: string;
+	    trait: string;
+	    want: string;
+	    secret: string;
+	    attitude: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new NPC(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.race = source["race"];
+	        this.role = source["role"];
+	        this.trait = source["trait"];
+	        this.want = source["want"];
+	        this.secret = source["secret"];
+	        this.attitude = source["attitude"];
+	    }
+	}
+	
+	export class Quest {
+	    title: string;
+	    text: string;
+	    giver: string;
+	    target: string;
+	    reward: string;
+	    xp: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Quest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.text = source["text"];
+	        this.giver = source["giver"];
+	        this.target = source["target"];
+	        this.reward = source["reward"];
+	        this.xp = source["xp"];
+	    }
+	}
+	export class Place {
+	    id: string;
+	    x: number;
+	    y: number;
+	    kind: string;
+	    name: string;
+	    race: string;
+	    note: string;
+	    npcs: NPC[];
+	    quests: Quest[];
+	    foes: Foe[];
+	    loot: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Place(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.kind = source["kind"];
+	        this.name = source["name"];
+	        this.race = source["race"];
+	        this.note = source["note"];
+	        this.npcs = this.convertValues(source["npcs"], NPC);
+	        this.quests = this.convertValues(source["quests"], Quest);
+	        this.foes = this.convertValues(source["foes"], Foe);
+	        this.loot = source["loot"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	
 	

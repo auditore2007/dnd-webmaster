@@ -304,6 +304,8 @@ export namespace main {
 	    feet: number;
 	    hasFog: boolean;
 	    places: model.Place[];
+	    parent: string;
+	    parentPlace: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new MapInfo(source);
@@ -318,6 +320,8 @@ export namespace main {
 	        this.feet = source["feet"];
 	        this.hasFog = source["hasFog"];
 	        this.places = this.convertValues(source["places"], model.Place);
+	        this.parent = source["parent"];
+	        this.parentPlace = source["parentPlace"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1161,6 +1165,7 @@ export namespace model {
 	    quests: Quest[];
 	    foes: Foe[];
 	    loot: string;
+	    map?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Place(source);
@@ -1179,6 +1184,7 @@ export namespace model {
 	        this.quests = this.convertValues(source["quests"], Quest);
 	        this.foes = this.convertValues(source["foes"], Foe);
 	        this.loot = source["loot"];
+	        this.map = source["map"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -87,6 +87,7 @@ func (w *World) Render(r Rand) *image.RGBA {
 	p.ships()
 	p.drawLabels()
 	p.decor()
+	p.clouds()
 	p.paper()
 	return p.c.img
 }
@@ -318,10 +319,40 @@ func (p *painter) rivers() {
 			taper := clamp(float64(k)/6, 0.3, 1)
 			widths[k] = clamp(0.5+math.Sqrt(f)/14, 0.6, 5.5) * taper * p.scale
 		}
-		p.c.fill(strokePolys(smooth, widths), riverColor, 0.95)
+		for _, run := range p.landRuns(smooth) { // через озёра и море русло не рисуется
+			line, ws := smooth[run[0]:run[1]], widths[run[0]:run[1]]
+			banks := make([]float64, len(ws))
+			core := make([]float64, len(ws))
+			for k, w := range ws {
+				banks[k], core[k] = w+1.6*p.scale, w*0.45
+			}
+			p.c.fill(strokePolys(line, banks), rgb(70, 82, 60), 0.45) // влажные берега
+			p.c.fill(strokePolys(line, ws), riverColor, 0.95)
+			p.c.fill(strokePolys(line, core), rgb(120, 168, 190), 0.45) // светлая стремнина
+		}
 		p.markLine(smooth, 4)
 		p.markRoad(smooth, 4)
 	}
+}
+
+// landRuns – отрезки ломаной [от; до), лежащие над сушей; на шаг заходят в воду, чтобы река в неё впадала.
+func (p *painter) landRuns(line []pt) [][2]int {
+	var out [][2]int
+	start := -1
+	for i, q := range line {
+		land := p.kind[p.at(int(q.x), int(q.y))] == pxLand
+		switch {
+		case land && start < 0:
+			start = max(0, i-1)
+		case !land && start >= 0:
+			out = append(out, [2]int{start, min(len(line), i+1)})
+			start = -1
+		}
+	}
+	if start >= 0 && len(line)-start > 1 {
+		out = append(out, [2]int{start, len(line)})
+	}
+	return out
 }
 
 func (p *painter) toEdge(q pt) pt {
@@ -371,6 +402,28 @@ func (p *painter) markRoad(line []pt, width float64) {
 			}
 		}
 	}
+}
+
+// clouds – лёгкие тени облаков: крупные мягкие пятна, чуть темнее на земле и на воде.
+func (p *painter) clouds() {
+	n := newNoise(p.r)
+	img := p.c.img
+	s := 520 * p.scale
+	parallelRows(p.H, func(y0, y1 int) {
+		for y := y0; y < y1; y++ {
+			for x := range p.W {
+				c := smoothstep(0.56, 0.74, n.fbm(float64(x)/s, float64(y)/s, 4))
+				if c == 0 {
+					continue
+				}
+				k := 1 - 0.1*c
+				o := img.PixOffset(x, y)
+				img.Pix[o] = uint8(float64(img.Pix[o]) * k)
+				img.Pix[o+1] = uint8(float64(img.Pix[o+1]) * k)
+				img.Pix[o+2] = uint8(float64(img.Pix[o+2]) * (k + 0.03*c))
+			}
+		}
+	})
 }
 
 // paper – фактура бумаги, тёплый тон и затемнение к краям.

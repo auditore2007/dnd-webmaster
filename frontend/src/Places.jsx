@@ -17,18 +17,19 @@ const BIG = ['capital', 'city']
 const ATTITUDE = { 'дружелюбен': 'ok', 'враждебен': 'bad' }
 
 /** PlaceMarker – значок места на карте; подпись у крупных поселений и у выбранного. */
-export function PlaceMarker({ p, selected, onSelect, labels }) {
+export function PlaceMarker({ p, selected, onSelect, labels, opens }) {
   const label = selected || (labels && BIG.includes(p.kind))
+  const hint = opens ? (p.map ? ' – клик: открыть карту места, Shift+клик: сведения' : ' – клик: нарисовать карту места, Shift+клик: сведения') : ''
   return (
-    <button className={'place k-' + p.kind + (selected ? ' sel' : '') + (p.foes?.length ? ' danger' : '')} style={{ left: p.x, top: p.y }}
-      title={`${p.name} · ${KIND_NAME[p.kind] ?? p.kind}`} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onSelect(p.id) }}>
+    <button className={'place k-' + p.kind + (selected ? ' sel' : '') + (p.foes?.length ? ' danger' : '') + (p.map ? ' has-map' : '')} style={{ left: p.x, top: p.y }}
+      title={`${p.name} · ${KIND_NAME[p.kind] ?? p.kind}${hint}`} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onSelect(p.id, e) }}>
       <span className="pi">{KIND_ICON[p.kind] ?? '📍'}</span>{label && <span className="pl">{p.name}</span>}
     </button>
   )
 }
 
 /** PlaceCard – всё о месте: правка, жители, задания (с переходом к цели), враги (на стол), добыча. */
-export function PlaceCard({ map, place: p, cat, level, guard, onMap, onSelect, reload, notify }) {
+export function PlaceCard({ map, place: p, cat, level, guard, onMap, onSelect, reload, notify, onOpen }) {
   const raceName = (id) => cat[0]?.races.find((r) => r.id === id)?.name ?? ''
   const [edit, setEdit] = useState(false)
   const [f, setF] = useState(p)
@@ -73,6 +74,7 @@ export function PlaceCard({ map, place: p, cat, level, guard, onMap, onSelect, r
       {p.loot && <p className="hint">💰 Добыча: {p.loot}</p>}
 
       <div className="row tight">
+        {onOpen && <button className="primary small" onClick={onOpen}>🗺 {p.map ? 'Карта места' : 'Нарисовать карту места'}</button>}
         {!edit && <button className="ghost small" onClick={() => { setF(p); setEdit(true) }}>✎ Править</button>}
         <button className="ghost small" title="Новые жители, задания или враги" onClick={() => guard(async () => onMap(await api.PopulatePlace(map.id, p.id, level)))}>🎲 Населить заново</button>
         <button className="ghost small danger" onClick={() => guard(async () => { onMap(await api.RemovePlace(map.id, p.id)); onSelect('') })}>Удалить</button>

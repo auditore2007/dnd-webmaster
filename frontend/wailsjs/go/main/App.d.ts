@@ -103,6 +103,8 @@ export function MonsterTurn():Promise<main.MonsterTurnView>;
 
 export function NextTurn():Promise<combat.Encounter>;
 
+export function OpenPlace(arg1:string,arg2:string,arg3:number):Promise<main.MapInfo>;
+
 export function PopulateMap(arg1:string,arg2:number,arg3:boolean):Promise<main.MapInfo>;
 
 export function PopulatePlace(arg1:string,arg2:string,arg3:number):Promise<main.MapInfo>;

@@ -22,12 +22,14 @@ type Pin struct {
 
 // MapMeta – карта из галереи; сама картинка лежит в отдельном файле map-<id>.
 type MapMeta struct {
-	ID     string        `json:"id"`
-	Name   string        `json:"name"`
-	Pins   []Pin         `json:"pins"`
-	Grid   int           `json:"grid"`   // размер клетки в пикселях картинки, 0 – сетки нет
-	Feet   int           `json:"feet"`   // сколько футов в клетке
-	Places []model.Place `json:"places"` // места: поселения, логова, NPC и задания
+	ID          string        `json:"id"`
+	Name        string        `json:"name"`
+	Pins        []Pin         `json:"pins"`
+	Grid        int           `json:"grid"`                  // размер клетки в пикселях картинки, 0 – сетки нет
+	Feet        int           `json:"feet"`                  // сколько футов в клетке
+	Places      []model.Place `json:"places"`                // места: поселения, логова, NPC и задания
+	Parent      string        `json:"parent,omitempty"`      // карта, с которой открыта эта (карта локации)
+	ParentPlace string        `json:"parentPlace,omitempty"` // место на родительской карте
 }
 
 // Snapshot – именованная копия игры. Данные лежат в отдельном файле snap-<id>;

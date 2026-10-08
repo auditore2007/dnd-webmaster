@@ -293,7 +293,10 @@ type blobStore interface {
 	LoadBlob(name string) (string, error)
 }
 
-const maxMapChars = 14 << 20
+const (
+	maxMapChars = 14 << 20
+	maxMaps     = 200 // вместе с картами локаций
+)
 
 // MapInfo – карта без картинки (картинка запрашивается отдельно).
 type MapInfo struct {
@@ -304,6 +307,9 @@ type MapInfo struct {
 	Feet   int           `json:"feet"`
 	HasFog bool          `json:"hasFog"`
 	Places []model.Place `json:"places"`
+	// карта локации: с какой карты и какого места на ней она открыта
+	Parent      string `json:"parent"`
+	ParentPlace string `json:"parentPlace"`
 }
 
 func (a *App) mapInfo(m store.MapMeta) MapInfo {
@@ -313,7 +319,8 @@ func (a *App) mapInfo(m store.MapMeta) MapInfo {
 			has = true
 		}
 	}
-	return MapInfo{m.ID, m.Name, append([]store.Pin{}, m.Pins...), m.Grid, max(5, m.Feet), has, append([]model.Place{}, model.ClonePlaces(m.Places)...)}
+	return MapInfo{m.ID, m.Name, append([]store.Pin{}, m.Pins...), m.Grid, max(5, m.Feet), has,
+		append([]model.Place{}, model.ClonePlaces(m.Places)...), m.Parent, m.ParentPlace}
 }
 
 func (a *App) Maps() []MapInfo {
@@ -341,8 +348,8 @@ func (a *App) AddMap(name, data string) (MapInfo, error) {
 	if !strings.HasPrefix(data, "data:image/") || len(data) > maxMapChars {
 		return MapInfo{}, errors.New("карта: нужна картинка размером не больше 10 МБ")
 	}
-	if len(a.state.Maps) >= 30 {
-		return MapInfo{}, errors.New("карт не может быть больше 30")
+	if len(a.state.Maps) >= maxMaps {
+		return MapInfo{}, fmt.Errorf("карт не может быть больше %d", maxMaps)
 	}
 	bs, ok := a.store.(blobStore)
 	if !ok {
@@ -381,11 +388,7 @@ func (a *App) DeleteMap(id string) error {
 		return errors.New("карта не найдена")
 	}
 	a.checkpoint()
-	a.state.Maps = slices.Delete(a.state.Maps, i, i+1)
-	if bs, ok := a.store.(blobStore); ok {
-		_ = bs.SaveBlob("map-"+id, "") // картинка удаляется; отмена вернёт карту без картинки
-		_ = bs.SaveBlob("fog-"+id, "")
-	}
+	a.dropMap(id)
 	return a.persist()
 }
 
@@ -444,4 +447,34 @@ func (a *App) restore() {
 		a.state = st
 	}
 	a.hist = a.hist[:n-1]
+}
+
+// dropMap удаляет карту вместе с картами её локаций; у места на родительской карте ссылка снимается.
+func (a *App) dropMap(id string) {
+	i := a.mapIdx(id)
+	if i < 0 {
+		return
+	}
+	m := a.state.Maps[i]
+	a.state.Maps = slices.Delete(a.state.Maps, i, i+1)
+	if bs, ok := a.store.(blobStore); ok {
+		_ = bs.SaveBlob("map-"+id, "") // картинка удаляется; отмена вернёт карту без картинки
+		_ = bs.SaveBlob("fog-"+id, "")
+	}
+	if p := a.mapIdx(m.Parent); p >= 0 {
+		for k := range a.state.Maps[p].Places {
+			if a.state.Maps[p].Places[k].Map == id {
+				a.state.Maps[p].Places[k].Map = ""
+			}
+		}
+	}
+	var kids []string
+	for _, c := range a.state.Maps {
+		if c.Parent == id {
+			kids = append(kids, c.ID)
+		}
+	}
+	for _, k := range kids {
+		a.dropMap(k)
+	}
 }

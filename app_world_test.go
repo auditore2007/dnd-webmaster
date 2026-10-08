@@ -1,9 +1,12 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
+	"heroesbook/internal/model"
+	"heroesbook/internal/worldgen"
 )
 
 func TestGenerateWorldAndDungeonMaps(t *testing.T) {
@@ -62,5 +65,50 @@ func TestPlacesEditAndPopulate(t *testing.T) {
 	}
 	if err := a.Undo(); err != nil || len(a.Maps()[0].Places) != n {
 		t.Errorf("отмена должна вернуть место: %v", err)
+	}
+}
+
+func TestOpenPlaceMakesLocationMapOnce(t *testing.T) {
+	a := newApp()
+	w, err := a.GenerateWorld("Мир", 5, []string{"human", "dwarf"}, 3, "small", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capital, cave model.Place
+	for _, p := range w.Places {
+		if p.Kind == "capital" && capital.ID == "" {
+			capital = p
+		}
+		if worldgen.Wild(p.Kind) && cave.ID == "" {
+			cave = p
+		}
+	}
+	town, err := a.OpenPlace(w.ID, capital.ID, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if town.Parent != w.ID || town.ParentPlace != capital.ID || town.Name != capital.Name || len(town.Places) < 3 {
+		t.Fatalf("карта столицы: %+v", town)
+	}
+	if !slices.ContainsFunc(town.Places, func(p model.Place) bool { return p.Kind == "tavern" && len(p.NPCs) > 0 }) {
+		t.Error("в городе должна быть населённая таверна")
+	}
+	again, err := a.OpenPlace(w.ID, capital.ID, 3)
+	if err != nil || again.ID != town.ID {
+		t.Fatalf("повторное открытие должно вернуть ту же карту: %v", err)
+	}
+	tavern := town.Places[slices.IndexFunc(town.Places, func(p model.Place) bool { return p.Kind == "tavern" })]
+	inside, err := a.OpenPlace(town.ID, tavern.ID, 3)
+	if err != nil || inside.Grid == 0 || inside.Parent != town.ID {
+		t.Fatalf("таверна изнутри – боевая карта с сеткой: %+v %v", inside.Grid, err)
+	}
+	if _, err := a.OpenPlace(w.ID, cave.ID, 3); err != nil {
+		t.Fatalf("дикое место %s: %v", cave.Kind, err)
+	}
+	if err := a.DeleteMap(w.ID); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(a.Maps()); n != 0 {
+		t.Errorf("с картой мира удаляются и карты её мест, осталось %d", n)
 	}
 }

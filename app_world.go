@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"image"
 	_ "image/jpeg" // форматы картинок карт
 	_ "image/png"
 	"math"
@@ -10,23 +13,23 @@ import (
 	"strings"
 	"time"
 
+	"heroesbook/internal/atlas"
 	"heroesbook/internal/model"
 	"heroesbook/internal/rules"
 	"heroesbook/internal/store"
-	"heroesbook/internal/atlas"
 	"heroesbook/internal/worldgen"
 )
 
 // ---------- карты: генерация мира, подземелий и локаций, места, население ----------
 
 const (
-	maxMapSide     = 100000   // координаты места не больше этого (картинки карт заметно меньше)
-	maxPlaces      = 300
-	placeNameLen   = 80
-	placeNoteLen   = 2000
+	maxMapSide   = 100000 // координаты места не больше этого (картинки карт заметно меньше)
+	maxPlaces    = 300
+	placeNameLen = 80
+	placeNoteLen = 2000
 )
 
-var worldSizes = map[string][2]int{"small": {1800, 1125}, "medium": {2400, 1500}, "large": {3200, 2000}}
+var worldSizes = map[string][2]int{"small": {2400, 1500}, "medium": {3200, 2000}, "large": {4000, 2500}}
 
 func (a *App) gen(seed int64, level int, races []string) worldgen.Gen {
 	r := worldgen.Seeded(seed)
@@ -72,8 +75,8 @@ func (a *App) addGeneratedMap(name, data string, places []model.Place) (MapInfo,
 	if len(data) > maxMapChars {
 		return MapInfo{}, errors.New("карта получилась слишком большой – выберите размер поменьше")
 	}
-	if len(a.state.Maps) >= 30 {
-		return MapInfo{}, errors.New("карт не может быть больше 30")
+	if len(a.state.Maps) >= maxMaps {
+		return MapInfo{}, fmt.Errorf("карт не может быть больше %d", maxMaps)
 	}
 	bs, ok := a.store.(blobStore)
 	if !ok {
@@ -127,6 +130,91 @@ func (a *App) GenerateDungeon(name string, seed, rooms, level int) (MapInfo, err
 		return MapInfo{}, err
 	}
 	return a.addGeneratedMap(cmpStr(name, "Подземелье"), url, places)
+}
+
+// ---------- карты локаций ----------
+
+// OpenPlace открывает карту места: если её уже рисовали – ту же, иначе рисует новую по виду места и местности
+// вокруг него на этой карте и населяет места внутри.
+func (a *App) OpenPlace(mapID, placeID string, level int) (MapInfo, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	m, err := a.mapAt(mapID)
+	if err != nil {
+		return MapInfo{}, err
+	}
+	pi := slices.IndexFunc(m.Places, func(p model.Place) bool { return p.ID == placeID })
+	if pi < 0 {
+		return MapInfo{}, errors.New("место не найдено")
+	}
+	p := m.Places[pi]
+	if j := a.mapIdx(p.Map); p.Map != "" && j >= 0 {
+		return a.mapInfo(a.state.Maps[j]), nil
+	}
+	if !worldgen.HasLocation(p.Kind) {
+		return MapInfo{}, errors.New("у комнаты нет своей карты – она уже на этой")
+	}
+	if len(a.state.Maps) >= maxMaps {
+		return MapInfo{}, fmt.Errorf("карт не может быть больше %d – удалите ненужные", maxMaps)
+	}
+	bs, ok := a.store.(blobStore)
+	if !ok {
+		return MapInfo{}, errors.New("хранилище не поддерживает карты")
+	}
+	env := worldgen.Surroundings{Biome: "grass"}
+	if img, err := bs.LoadBlob("map-" + mapID); err == nil {
+		if px, err := pixels(img); err == nil {
+			env = worldgen.SurroundingsAt(px, p.X, p.Y)
+		}
+	}
+	url, places, grid, err := a.gen(randomSeed(0), level, nil).Location(p, env)
+	if err != nil {
+		return MapInfo{}, err
+	}
+	if len(url) > maxMapChars {
+		return MapInfo{}, errors.New("карта места получилась слишком большой")
+	}
+	sub := store.MapMeta{ID: newID(), Name: cmpStr(clipRunes(p.Name, 60), "Локация"), Places: limitPlaces(places),
+		Grid: grid, Feet: 5, Parent: mapID, ParentPlace: placeID}
+	if err := bs.SaveBlob("map-"+sub.ID, url); err != nil {
+		return MapInfo{}, err
+	}
+	a.checkpoint()
+	m.Places[pi].Map = sub.ID
+	a.state.Maps = append(a.state.Maps, sub)
+	a.note("Карта места «%s»: мест %d", sub.Name, len(sub.Places))
+	return a.mapInfo(sub), a.persist()
+}
+
+func clipRunes(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n])
+	}
+	return s
+}
+
+// pixels – доступ к цветам картинки карты (data:URL) по координатам.
+func pixels(dataURL string) (func(x, y int) (r, g, b uint8, ok bool), error) {
+	_, body, ok := strings.Cut(dataURL, ",")
+	if !ok {
+		return nil, errors.New("у карты нет картинки")
+	}
+	raw, err := base64.StdEncoding.DecodeString(body)
+	if err != nil {
+		return nil, err
+	}
+	img, _, err := image.Decode(bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	b := img.Bounds()
+	return func(x, y int) (uint8, uint8, uint8, bool) {
+		if !(image.Point{x, y}.In(b)) {
+			return 0, 0, 0, false
+		}
+		r, g, bb, _ := img.At(x, y).RGBA()
+		return uint8(r >> 8), uint8(g >> 8), uint8(bb >> 8), true
+	}, nil
 }
 
 // ---------- места ----------

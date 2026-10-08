@@ -2,6 +2,7 @@ package worldgen
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -121,5 +122,22 @@ func TestEveryRaceHasCastleSprite(t *testing.T) {
 		if !atlas.HasCastle(race) {
 			t.Errorf("нет картинки замка для расы %s", race)
 		}
+	}
+}
+
+func TestSurroundingsFindWaterAndBiome(t *testing.T) {
+	// слева вода, справа снег
+	px := func(x, y int) (uint8, uint8, uint8, bool) {
+		if x < 100 {
+			return 40, 90, 140, true
+		}
+		return 236, 238, 240, true
+	}
+	env := SurroundingsAt(px, 100, 100)
+	if !env.Water || env.Biome != "snow" || math.Cos(env.WaterDir) > -0.5 {
+		t.Errorf("местность: %+v", env)
+	}
+	if HasLocation("room") || !HasLocation("cave") {
+		t.Error("у комнаты своей карты нет, у пещеры – есть")
 	}
 }

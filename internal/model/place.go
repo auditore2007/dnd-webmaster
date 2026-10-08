@@ -15,6 +15,7 @@ type Place struct {
 	Quests []Quest `json:"quests"`
 	Foes   []Foe   `json:"foes"`
 	Loot   string  `json:"loot"`
+	Map    string  `json:"map,omitempty"` // id карты этой локации, если её уже открывали
 }
 
 // NPC – персонаж места: кто он, чем занят и что скрывает.

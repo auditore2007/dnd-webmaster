@@ -194,6 +194,10 @@ export function NextTurn() {
   return window['go']['main']['App']['NextTurn']();
 }
 
+export function OpenPlace(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OpenPlace'](arg1, arg2, arg3);
+}
+
 export function PopulateMap(arg1, arg2, arg3) {
   return window['go']['main']['App']['PopulateMap'](arg1, arg2, arg3);
 }

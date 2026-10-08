@@ -83,7 +83,7 @@ func (g Gen) World(o WorldOpts) (string, []model.Place, error) {
 		wild[i].X, wild[i].Y = math.Round(w.Sites[i].X), math.Round(w.Sites[i].Y)
 	}
 	places = append(places, wild...)
-	url, err := canvas{img}.dataURL(92)
+	url, err := canvas{img}.dataURL(94)
 	if err != nil {
 		return "", nil, err
 	}

@@ -25,6 +25,11 @@ export default function MapsView({ guard, rev = 0, chars = [], cat = [], reload,
   useEffect(() => { load() }, [rev])
   useEffect(() => { setImg(''); setArmed(false); setRenaming(false); if (cur) guard(async () => setImg(await api.GetMapImage(cur))) }, [cur])
   const map = maps?.find((m) => m.id === cur)
+  // trail – цепочка карт от мира до текущей локации
+  const trail = []
+  for (let m = map; m && trail.length < 10; m = maps.find((x) => x.id === m.parent)) trail.unshift(m)
+  const parentMap = map?.parent ? maps.find((m) => m.id === map.parent) : null
+  const parentPlace = parentMap?.places?.find((p) => p.id === map.parentPlace)
   const add = (file) => guard(async () => {
     const data = await pickMap(file)
     const m = await api.AddMap(name.trim() || file.name.replace(/\.[^.]+$/, '') || 'Карта', data)
@@ -37,8 +42,12 @@ export default function MapsView({ guard, rev = 0, chars = [], cat = [], reload,
     <section className="map">
       <h2>Карты</h2>
       <div className="chips mtabs">
-        {maps.map((m) => <button key={m.id} className="chip" aria-pressed={m.id === cur} onClick={() => setCur(m.id)}>{m.name}</button>)}
+        {maps.filter((m) => !m.parent).map((m) => <button key={m.id} className="chip" aria-pressed={m.id === trail[0]?.id} onClick={() => setCur(m.id)}>{m.name}</button>)}
       </div>
+      {trail.length > 1 && <nav className="row tight crumbs" aria-label="Путь к локации">
+        {trail.map((m, i) => <span key={m.id}>{i > 0 && ' › '}{i < trail.length - 1
+          ? <button className="ghost small" onClick={() => setCur(m.id)}>{m.name}</button> : <b>{m.name}</b>}</span>)}
+      </nav>}
       <div className="row tight">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название новой карты" aria-label="Название новой карты" />
         <label className="primary small" title="Загрузить картинку карты со своего компьютера">＋ Добавить карту
@@ -55,15 +64,20 @@ export default function MapsView({ guard, rev = 0, chars = [], cat = [], reload,
       {maps.length === 0
         ? <p className="empty">Карт пока нет. Создайте мир или подземелье прямо здесь – или загрузите свою картинку и разметьте её вручную.</p>
         : map && img ? <Viewer key={map.id + ':' + rev} map={map} img={img} guard={guard} reload={() => load(map.id)}
-          onMap={onMap} cat={cat} level={level} reloadChars={reload} notify={notify} /> : <p className="hint">Загрузка карты…</p>}
+          onMap={onMap} cat={cat} level={level} reloadChars={reload} notify={notify}
+          parentMap={parentMap} parentPlace={parentPlace} onOpenMap={(m) => load(m.id)} /> : <p className="hint">Загрузка карты…</p>}
     </section>
   )
 }
 
 const FOGMAX = 1024
 
-function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notify }) {
+// INSIDE – места, у которых на карте локации есть своя карта (здание изнутри, подземелье, замок в городе).
+const INSIDE = ['tavern', 'temple', 'shop', 'smithy', 'dungeon', 'castle']
+
+function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notify, parentMap, parentPlace, onOpenMap }) {
   const [sel, setSel] = useState('')
+  const [about, setAbout] = useState(false)
   const [placeKind, setPlaceKind] = useState('tavern')
   const [placeName, setPlaceName] = useState('')
   const [showPlaces, setShowPlaces] = useState(true)
@@ -177,6 +191,20 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
     }
   }
   // select: выбрать место; pan – прокрутить карту к нему (переход из задания)
+  // canOpen – у места есть своя карта: на карте мира у всех, кроме комнат; на карте локации – у зданий,
+  // подземелий и замка (но не у построек внутри самого замка); на боевых картах (с сеткой) – ни у кого.
+  const canOpen = (p) => p.kind !== 'room' && !(map.grid > 0) &&
+    (!map.parent || (INSIDE.includes(p.kind) && !(p.kind === 'castle' && parentPlace?.kind === 'castle')))
+  const openPlace = (p) => guard(async () => {
+    setBusy(p.map ? `Открываем «${p.name}»…` : `Рисуем карту «${p.name}»…`)
+    try { onOpenMap(await api.OpenPlace(map.id, p.id, level)) } finally { setBusy('') }
+  })
+  // pick – клик по месту: открыть его карту; с Shift (или если своей карты не бывает) – показать карточку.
+  const pick = (id, e) => {
+    const p = places.find((x) => x.id === id)
+    if (p && canOpen(p) && !e?.shiftKey) openPlace(p)
+    else select(id)
+  }
   const select = (id, pan) => {
     setSel(id)
     const p = places.find((x) => x.id === id)
@@ -214,6 +242,7 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
           <button className="ghost" title="Жители и задания – в поселениях, враги и добыча – в диких местах (только там, где пусто)" disabled={!places.length}
             onClick={() => work('Населяем…', () => api.PopulateMap(map.id, level, true))}>✨ Населить карту</button>
           <button className="ghost" disabled={!places.length} onClick={() => work('Населяем заново…', () => api.PopulateMap(map.id, level, false))}>🎲 Всё заново</button>
+          {parentPlace && <button className="ghost" aria-pressed={about} onClick={() => { setSel(''); setAbout(!about) }}>📜 О месте: {parentPlace.name}</button>}
           <label className="eq"><input type="checkbox" checked={showPlaces} onChange={(e) => setShowPlaces(e.target.checked)} /> показывать места</label>
           <label className="eq"><input type="checkbox" checked={labels} onChange={(e) => setLabels(e.target.checked)} /> подписи городов</label></>}
       </div>
@@ -240,7 +269,10 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
         <button className="ghost small" onClick={() => { setCell(Math.round(dist)); setGridOn(true); saveGrid(true, dist) }}>Принять за клетку</button>
         <button className="ghost small" onClick={() => setRuler(null)}>Скрыть</button></div>}
       <div className="mapwrap">
-      {selected && <PlaceCard key={selected.id} map={map} place={selected} cat={cat} level={level} guard={guard} onMap={onMap} onSelect={select} reload={reloadChars} notify={notify} />}
+      {selected && <PlaceCard key={selected.id} map={map} place={selected} cat={cat} level={level} guard={guard} onMap={onMap} onSelect={select} reload={reloadChars} notify={notify}
+        onOpen={canOpen(selected) ? () => openPlace(selected) : null} />}
+      {!selected && about && parentMap && parentPlace && <PlaceCard key={'about' + parentPlace.id} map={parentMap} place={parentPlace} cat={cat} level={level} guard={guard}
+        onMap={() => reload()} onSelect={() => setAbout(false)} reload={reloadChars} notify={notify} />}
       <div className="mapbox" ref={box} style={{ cursor }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         <div className="mapl" style={{ transform: `translate(${v.x}px,${v.y}px) scale(${v.k})`, '--ik': 1 / v.k }}>
           <img ref={im} src={img} alt={map.name} draggable="false" onLoad={(e) => { setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight }); fit() }} />
@@ -250,7 +282,7 @@ function Viewer({ map, img, guard, reload, onMap, cat, level, reloadChars, notif
             <circle cx={ruler[0]} cy={ruler[1]} r={5 / v.k} fill="#ffd34d" /><circle cx={ruler[2]} cy={ruler[3]} r={5 / v.k} fill="#ffd34d" /></svg>}
           {map.pins.map((p, i) => <div className="pin" key={`${i}:${p.x}:${p.y}`} style={{ left: p.x, top: p.y }}><span>{p.text}</span>
             <button aria-label={`Удалить метку ${p.text}`} onClick={() => guard(async () => { await api.RemovePin(map.id, i); await reload() })}>✕</button></div>)}
-          {showPlaces && places.map((p) => <PlaceMarker key={p.id} p={p} selected={p.id === sel} onSelect={select} labels={labels} />)}
+          {showPlaces && places.map((p) => <PlaceMarker key={p.id} p={p} selected={p.id === sel} onSelect={pick} labels={labels} opens={canOpen(p)} />)}
         </div>
       </div>
       </div>
